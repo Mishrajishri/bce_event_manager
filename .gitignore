@@ -1,0 +1,37 @@
+# Operating System files
+.DS_Store
+.Trashes
+Thumbs.db
+
+# IDE-related files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Compiled files
+*.pyc
+*.o
+*.ko
+*.elf
+*.bin
+*.obj
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+
+# Python
+__pycache__/
+*.env
+venv/
+
+# Logs
+*.log
+
+# Editor backup files
+*~
+*.bak
+*.swp
+*.swo
