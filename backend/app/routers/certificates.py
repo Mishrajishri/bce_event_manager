@@ -1,4 +1,5 @@
 """Certificate generation API routes."""
+import re
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 import io
@@ -128,9 +129,12 @@ async def generate_certificate(
     c.save()
     buffer.seek(0)
 
-    filename = f"certificate_{event['name'].replace(' ', '_')}_{full_name.replace(' ', '_')}.pdf"
+    # Sanitize filename — strip everything except alnum, hyphens, underscores
+    safe_event = re.sub(r'[^\w\-]', '_', event['name'])
+    safe_name = re.sub(r'[^\w\-]', '_', full_name)
+    filename = f"certificate_{safe_event}_{safe_name}.pdf"
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

@@ -87,19 +87,24 @@ export const useUIStore = create<UIState>()(
 )
 
 // Role checking helpers
+
+/** Returns true if the user has any of the specified roles. */
 export const hasRole = (user: User | null, roles: UserRole[]): boolean => {
   if (!user) return false
   return roles.includes(user.role)
 }
 
+/** True only for users with `super_admin` role — maps to backend `require_super_admin`. */
 export const isSuperAdmin = (user: User | null): boolean => {
   return hasRole(user, ['super_admin'])
 }
 
+/** True for `super_admin` and `organizer` — maps to backend `require_organizer`. */
 export const isOrganizer = (user: User | null): boolean => {
   return hasRole(user, ['super_admin', 'organizer'])
 }
 
+/** True for `super_admin` and `organizer` — maps to backend `require_admin`. */
 export const isAdmin = (user: User | null): boolean => {
-  return hasRole(user, ['super_admin'])
+  return hasRole(user, ['super_admin', 'organizer'])
 }

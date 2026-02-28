@@ -1,7 +1,7 @@
 """Super Admin API routes — full platform management."""
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
-from typing import List, Optional
+from typing import Dict, List, Optional
 import csv
 import io
 
@@ -176,7 +176,7 @@ async def reset_user_password(
     user_id: str,
     current_user: CurrentUser = Depends(require_super_admin),
 ):
-    """Trigger password reset email for a user."""
+    """Trigger password reset email for a user via Supabase built-in flow."""
     try:
         user_response = supabase_admin.auth.admin.get_user_by_id(user_id)
         email = user_response.user.email
@@ -187,10 +187,8 @@ async def reset_user_password(
                 detail="User has no email address",
             )
 
-        supabase_admin.auth.admin.generate_link({
-            "type": "recovery",
-            "email": email,
-        })
+        # Use Supabase's built-in password reset which actually sends the email
+        supabase_admin.auth.reset_password_email(email)
 
         await log_audit(
             actor_id=current_user.user_id,
@@ -200,7 +198,7 @@ async def reset_user_password(
             changes={"email": email},
         )
 
-        return MessageResponse(message=f"Password reset email sent to {email}")
+        return MessageResponse(message=f"Password reset email sent to {email}", success=True)
 
     except HTTPException:
         raise
@@ -340,7 +338,7 @@ async def get_platform_stats(
             elif hasattr(u, 'id'):
                 all_users.append(u)
 
-        role_counts: dict[str, int] = {}
+        role_counts: Dict[str, int] = {}
         for u in all_users:
             role = (u.user_metadata or {}).get("role", "attendee")
             role_counts[role] = role_counts.get(role, 0) + 1

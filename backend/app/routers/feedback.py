@@ -41,14 +41,25 @@ async def create_feedback(
             detail="You have already submitted feedback for this event",
         )
 
-    response = supabase_admin.table("feedback").insert({
-        "event_id": event_id,
-        "user_id": current_user.user_id,
-        "rating": data.rating,
-        "comment": data.comment,
-    }).execute()
+    response = None
+    try:
+        response = supabase_admin.table("feedback").insert({
+            "event_id": event_id,
+            "user_id": current_user.user_id,
+            "rating": data.rating,
+            "comment": data.comment,
+        }).execute()
+    except Exception as e:
+        # Catch Postgres unique constraint violation (23505) for concurrent requests
+        error_str = str(e)
+        if "23505" in error_str or "duplicate" in error_str.lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You have already submitted feedback for this event",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to submit feedback: {error_str}")
 
-    if not response.data:
+    if not response or not response.data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to submit feedback")
 
     return FeedbackResponse(**response.data[0])
