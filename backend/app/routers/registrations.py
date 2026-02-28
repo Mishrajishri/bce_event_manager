@@ -42,8 +42,8 @@ async def register_for_event(
 
     event = event_response.data[0]
 
-    if event["status"] not in ["draft", "published"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Registration is closed for this event")
+    if event["status"] != "published":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Event is not open for registration")
 
     # Check deadline (UTC)
     registration_deadline = event.get("registration_deadline")

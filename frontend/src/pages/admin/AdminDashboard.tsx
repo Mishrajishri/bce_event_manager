@@ -57,6 +57,7 @@ function UsersTab() {
     const [roleFilter, setRoleFilter] = useState('')
     const [editUser, setEditUser] = useState<User | null>(null)
     const [editRole, setEditRole] = useState('')
+    const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
 
     const { data: users, isLoading } = useQuery({
         queryKey: ['admin-users', search, roleFilter],
@@ -73,7 +74,7 @@ function UsersTab() {
 
     const deleteMutation = useMutation({
         mutationFn: adminApi.deleteUser,
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-users'] }); setDeleteTarget(null) },
     })
 
     const resetMutation = useMutation({
@@ -154,9 +155,7 @@ function UsersTab() {
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Delete user">
-                                            <IconButton size="small" color="error" onClick={() => {
-                                                if (confirm('Are you sure?')) deleteMutation.mutate(user.id)
-                                            }}>
+                                            <IconButton size="small" color="error" onClick={() => setDeleteTarget(user)}>
                                                 <Delete fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
@@ -193,6 +192,30 @@ function UsersTab() {
                         disabled={updateMutation.isPending}
                     >
                         Save
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+                <DialogTitle>⚠️ Delete User</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Are you sure you want to permanently delete <strong>{deleteTarget?.first_name} {deleteTarget?.last_name}</strong> ({deleteTarget?.email})?
+                    </Typography>
+                    <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                        This action cannot be undone.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+                        disabled={deleteMutation.isPending}
+                    >
+                        {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
                     </Button>
                 </DialogActions>
             </Dialog>

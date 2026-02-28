@@ -1,9 +1,11 @@
 """Super Admin API routes — full platform management."""
+import time
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from typing import Dict, List, Optional
 import csv
 import io
+import logging
 
 from app.auth import CurrentUser, require_super_admin
 from app.supabase import supabase_admin
@@ -17,7 +19,56 @@ from app.models import (
     MessageResponse,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+# ---------------------------------------------------------------------------
+# User cache — avoids fetching ALL users from Supabase on every request
+# ---------------------------------------------------------------------------
+_user_cache: List[dict] = []
+_user_cache_ts: float = 0
+_USER_CACHE_TTL = 60  # seconds
+
+
+def _get_all_users(force_refresh: bool = False) -> List[dict]:
+    """Return cached list of all users; refreshes every 60 seconds."""
+    global _user_cache, _user_cache_ts
+    if not force_refresh and _user_cache and (time.time() - _user_cache_ts) < _USER_CACHE_TTL:
+        return _user_cache
+
+    response = supabase_admin.auth.admin.list_users()
+    users: List[dict] = []
+    for u in response:
+        if isinstance(u, list):
+            for user in u:
+                meta = user.user_metadata or {}
+                users.append({
+                    "id": user.id,
+                    "email": user.email or "",
+                    "first_name": meta.get("first_name", ""),
+                    "last_name": meta.get("last_name", ""),
+                    "phone": meta.get("phone"),
+                    "role": meta.get("role", "attendee"),
+                    "is_verified": user.email_confirmed_at is not None,
+                    "created_at": user.created_at,
+                })
+        elif hasattr(u, 'id'):
+            meta = u.user_metadata or {}
+            users.append({
+                "id": u.id,
+                "email": u.email or "",
+                "first_name": meta.get("first_name", ""),
+                "last_name": meta.get("last_name", ""),
+                "phone": meta.get("phone"),
+                "role": meta.get("role", "attendee"),
+                "is_verified": u.email_confirmed_at is not None,
+                "created_at": u.created_at,
+            })
+
+    _user_cache = users
+    _user_cache_ts = time.time()
+    return users
+
 
 
 # ---------------------------------------------------------------------------
@@ -32,39 +83,9 @@ async def list_users(
     offset: int = Query(0, ge=0),
     current_user: CurrentUser = Depends(require_super_admin),
 ):
-    """List all users with optional filters."""
+    """List all users with optional filters (uses 60s cached user list)."""
     try:
-        response = supabase_admin.auth.admin.list_users()
-        users = []
-        for u in response:
-            # Handle both list and paginated response
-            if isinstance(u, list):
-                for user in u:
-                    meta = user.user_metadata or {}
-                    user_data = {
-                        "id": user.id,
-                        "email": user.email or "",
-                        "first_name": meta.get("first_name", ""),
-                        "last_name": meta.get("last_name", ""),
-                        "phone": meta.get("phone"),
-                        "role": meta.get("role", "attendee"),
-                        "is_verified": user.email_confirmed_at is not None,
-                        "created_at": user.created_at,
-                    }
-                    users.append(user_data)
-            elif hasattr(u, 'id'):
-                meta = u.user_metadata or {}
-                user_data = {
-                    "id": u.id,
-                    "email": u.email or "",
-                    "first_name": meta.get("first_name", ""),
-                    "last_name": meta.get("last_name", ""),
-                    "phone": meta.get("phone"),
-                    "role": meta.get("role", "attendee"),
-                    "is_verified": u.email_confirmed_at is not None,
-                    "created_at": u.created_at,
-                }
-                users.append(user_data)
+        users = _get_all_users()
 
         # Apply filters
         if search:
@@ -327,20 +348,14 @@ async def list_audit_logs(
 async def get_platform_stats(
     current_user: CurrentUser = Depends(require_super_admin),
 ):
-    """Get global platform statistics."""
+    """Get global platform statistics (uses cached user list)."""
     try:
-        # Users by role
-        user_response = supabase_admin.auth.admin.list_users()
-        all_users = []
-        for u in user_response:
-            if isinstance(u, list):
-                all_users.extend(u)
-            elif hasattr(u, 'id'):
-                all_users.append(u)
+        # Users by role — reuse cached user list
+        all_users = _get_all_users()
 
         role_counts: Dict[str, int] = {}
         for u in all_users:
-            role = (u.user_metadata or {}).get("role", "attendee")
+            role = u.get("role", "attendee")
             role_counts[role] = role_counts.get(role, 0) + 1
 
         # Events
