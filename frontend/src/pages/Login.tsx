@@ -76,7 +76,7 @@ export default function Login() {
           data.session.access_token,
           data.session.refresh_token
         )
-        navigate('/')
+        navigate('/')  // RoleRedirect will send to /home, /dashboard, or /admin
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')

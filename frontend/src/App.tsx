@@ -24,60 +24,88 @@ function LoadingFallback() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Route Guards
+// ---------------------------------------------------------------------------
+
+/** Redirects unauthenticated users to /login */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return <>{children}</>
 }
 
+/** Requires organizer or super_admin role */
 function OrganizerRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (!isOrganizer(user)) return <Navigate to="/" replace />
+  if (!isOrganizer(user)) return <Navigate to="/home" replace />
   return <>{children}</>
 }
 
+/** Requires super_admin role */
 function SuperAdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (!isSuperAdmin(user)) return <Navigate to="/" replace />
+  if (!isSuperAdmin(user)) return <Navigate to="/home" replace />
   return <>{children}</>
 }
+
+/** Redirects already-authenticated users away from login/register */
+function GuestRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useAuthStore()
+  if (isAuthenticated) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
+/** Redirects authenticated users to their role-specific dashboard */
+function RoleRedirect() {
+  const { user } = useAuthStore()
+
+  if (isSuperAdmin(user)) return <Navigate to="/admin" replace />
+  if (isOrganizer(user)) return <Navigate to="/dashboard" replace />
+  return <Navigate to="/home" replace />
+}
+
+// ---------------------------------------------------------------------------
+// App
+// ---------------------------------------------------------------------------
 
 function App() {
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          {/* Guest-only Routes — redirect to dashboard if already logged in */}
+          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
 
-          {/* Protected Routes */}
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Home />} />
+          {/* All authenticated routes live inside Layout */}
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            {/* Role-based redirect at root */}
+            <Route index element={<RoleRedirect />} />
+
+            {/* Student / common routes */}
+            <Route path="home" element={<Home />} />
             <Route path="events" element={<Events />} />
             <Route path="events/:id" element={<EventDetail />} />
+            <Route path="my-registrations" element={<MyRegistrations />} />
 
-            <Route path="my-registrations" element={
-              <ProtectedRoute><MyRegistrations /></ProtectedRoute>
-            } />
-
+            {/* Organizer routes */}
             <Route path="dashboard" element={
-              <ProtectedRoute><Dashboard /></ProtectedRoute>
+              <OrganizerRoute><Dashboard /></OrganizerRoute>
             } />
-
             <Route path="events/create" element={
               <OrganizerRoute><CreateEvent /></OrganizerRoute>
             } />
 
-            {/* Super Admin Routes */}
+            {/* Super Admin routes */}
             <Route path="admin/*" element={
               <SuperAdminRoute><AdminDashboard /></SuperAdminRoute>
             } />
           </Route>
 
-          {/* Catch all */}
+          {/* Catch all — send to login or role redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

@@ -4,7 +4,6 @@ import {
   Box,
   Toolbar,
   Typography,
-  Button,
   IconButton,
   Drawer,
   List,
@@ -44,7 +43,7 @@ export default function Layout() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
   const navigate = useNavigate()
-  const { user, isAuthenticated, clearAuth } = useAuthStore()
+  const { user, clearAuth } = useAuthStore()
   const { themeMode, toggleTheme } = useUIStore()
 
   const handleDrawerToggle = () => {
@@ -66,25 +65,23 @@ export default function Layout() {
     handleClose()
   }
 
+  // Layout is only rendered for authenticated users (wrapped in ProtectedRoute)
+  // so we can always show the full menu
   const menuItems = [
-    { text: 'Home', icon: <HomeIcon />, path: '/' },
+    { text: 'Home', icon: <HomeIcon />, path: '/home' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
+    { text: 'My Registrations', icon: <RegistrationIcon />, path: '/my-registrations' },
   ]
 
-  if (isAuthenticated) {
+  if (isOrganizer(user)) {
     menuItems.push(
-      { text: 'My Registrations', icon: <RegistrationIcon />, path: '/my-registrations' }
+      { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' }
     )
-    if (isOrganizer(user)) {
-      menuItems.push(
-        { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' }
-      )
-    }
-    if (isSuperAdmin(user)) {
-      menuItems.push(
-        { text: 'Admin Panel', icon: <AdminPanelSettings />, path: '/admin' }
-      )
-    }
+  }
+  if (isSuperAdmin(user)) {
+    menuItems.push(
+      { text: 'Admin Panel', icon: <AdminPanelSettings />, path: '/admin' }
+    )
   }
 
   const drawer = (
@@ -137,52 +134,41 @@ export default function Layout() {
             </IconButton>
           </Tooltip>
 
-          {isAuthenticated ? (
-            <>
-              <IconButton
-                size="large"
-                onClick={handleMenu}
-                color="inherit"
-                aria-label="User account menu"
-                aria-haspopup="true"
-              >
-                <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36, fontSize: 16 }}>
-                  {user?.first_name?.[0] || <AccountCircle />}
-                </Avatar>
-              </IconButton>
-              <Menu
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleClose}
-              >
-                <MenuItem disabled>
-                  <Typography variant="body2">
-                    {user?.first_name} {user?.last_name}
-                  </Typography>
-                </MenuItem>
-                <MenuItem disabled>
-                  <Typography variant="caption" color="text.secondary">
-                    {user?.role}
-                  </Typography>
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>
-                  <ListItemIcon>
-                    <LogoutIcon fontSize="small" />
-                  </ListItemIcon>
-                  Logout
-                </MenuItem>
-              </Menu>
-            </>
-          ) : (
-            <>
-              <Button color="inherit" component={Link} to="/login">
-                Login
-              </Button>
-              <Button color="inherit" component={Link} to="/register">
-                Register
-              </Button>
-            </>
-          )}
+
+          {/* User menu — Layout is always authenticated */}
+          <IconButton
+            size="large"
+            onClick={handleMenu}
+            color="inherit"
+            aria-label="User account menu"
+            aria-haspopup="true"
+          >
+            <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36, fontSize: 16 }}>
+              {user?.first_name?.[0] || <AccountCircle />}
+            </Avatar>
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+          >
+            <MenuItem disabled>
+              <Typography variant="body2">
+                {user?.first_name} {user?.last_name}
+              </Typography>
+            </MenuItem>
+            <MenuItem disabled>
+              <Typography variant="caption" color="text.secondary">
+                {user?.role}
+              </Typography>
+            </MenuItem>
+            <MenuItem onClick={handleLogout}>
+              <ListItemIcon>
+                <LogoutIcon fontSize="small" />
+              </ListItemIcon>
+              Logout
+            </MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
 
@@ -218,6 +204,6 @@ export default function Layout() {
       >
         <Outlet />
       </Box>
-    </Box>
+    </Box >
   )
 }
