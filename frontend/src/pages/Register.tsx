@@ -134,8 +134,11 @@ export default function Register() {
                 onChange={handleChange as any}
               >
                 <MenuItem value="attendee">Attendee</MenuItem>
-                <MenuItem value="organizer">Organizer</MenuItem>
+                <MenuItem value="captain">Team Captain</MenuItem>
               </Select>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1 }}>
+                Organizer roles are assigned by administrators.
+              </Typography>
             </FormControl>
             <TextField
               fullWidth

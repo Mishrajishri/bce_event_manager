@@ -13,6 +13,7 @@ import {
 import { signIn } from '../services/supabase'
 import { useAuthStore } from '../store'
 import { authApi } from '../services/api'
+import { supabase } from '../services/supabase'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -21,6 +22,22 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email address first')
+      return
+    }
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email)
+      if (resetError) throw resetError
+      setResetSent(true)
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset email')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,6 +99,12 @@ export default function Login() {
             </Alert>
           )}
 
+          {resetSent && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              Password reset email sent! Check your inbox.
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
@@ -112,6 +135,17 @@ export default function Login() {
               {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
+
+          <Box sx={{ mt: 1, textAlign: 'right' }}>
+            <Link
+              component="button"
+              variant="body2"
+              onClick={handleForgotPassword}
+              sx={{ cursor: 'pointer' }}
+            >
+              Forgot Password?
+            </Link>
+          </Box>
 
           <Typography variant="body2" sx={{ mt: 2 }} align="center">
             Don't have an account?{' '}

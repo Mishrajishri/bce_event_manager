@@ -26,6 +26,8 @@ export interface Event {
   end_date: string
   venue: string
   max_participants: number
+  current_participants?: number
+  registration_fee?: number
   registration_deadline: string
   status: EventStatus
   cover_image?: string

@@ -1,15 +1,33 @@
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Container, Typography, Box, Chip, Button, Paper, Grid, Card, CardContent } from '@mui/material'
+import {
+  Container, Typography, Box, Chip, Button, Paper, Grid, Card, CardContent,
+  TextField, Snackbar, Alert, Skeleton,
+} from '@mui/material'
+import { CalendarMonth, LocationOn, People, Timer } from '@mui/icons-material'
 import { useState } from 'react'
 import { eventsApi, teamsApi, registrationsApi } from '../services/api'
 import { useAuthStore } from '../store'
+
+const statusColor = (s: string) => {
+  switch (s) {
+    case 'published': return 'success'
+    case 'draft': return 'default'
+    case 'ongoing': return 'info'
+    case 'completed': return 'primary'
+    case 'cancelled': return 'error'
+    default: return 'default'
+  }
+}
 
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
   const { isAuthenticated } = useAuthStore()
   const [teamName, setTeamName] = useState('')
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false, message: '', severity: 'success',
+  })
 
   const { data: event, isLoading } = useQuery({
     queryKey: ['event', id],
@@ -28,7 +46,10 @@ export default function EventDetail() {
       registrationsApi.register(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
-      alert('Registration successful!')
+      setSnackbar({ open: true, message: '🎉 Registration successful!', severity: 'success' })
+    },
+    onError: (err: Error) => {
+      setSnackbar({ open: true, message: err.message || 'Registration failed', severity: 'error' })
     },
   })
 
@@ -37,11 +58,42 @@ export default function EventDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teams', id] })
       setTeamName('')
+      setSnackbar({ open: true, message: 'Team created!', severity: 'success' })
     },
   })
 
-  if (isLoading) return <Typography>Loading...</Typography>
-  if (!event) return <Typography>Event not found</Typography>
+  if (isLoading) {
+    return (
+      <Container maxWidth="lg">
+        <Paper sx={{ p: 3 }}>
+          <Skeleton variant="text" width="60%" height={48} />
+          <Skeleton variant="text" width="30%" />
+          <Skeleton variant="rectangular" height={120} sx={{ mt: 2, borderRadius: 2 }} />
+          <Grid container spacing={2} sx={{ mt: 2 }}>
+            {[1, 2, 3, 4].map(i => (
+              <Grid item xs={12} sm={6} key={i}>
+                <Skeleton variant="text" width="40%" />
+                <Skeleton variant="text" width="60%" />
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
+      </Container>
+    )
+  }
+
+  if (!event) {
+    return (
+      <Container maxWidth="lg">
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h5" color="text.secondary">😕 Event not found</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            This event may have been removed or doesn't exist.
+          </Typography>
+        </Paper>
+      </Container>
+    )
+  }
 
   const canRegister = new Date(event.registration_deadline) > new Date() &&
     event.status === 'published'
@@ -51,33 +103,53 @@ export default function EventDetail() {
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Typography variant="h4">{event.name}</Typography>
-          <Chip label={event.status} color="primary" />
+          <Chip label={event.status} color={statusColor(event.status) as any} />
         </Box>
 
-        <Chip label={event.event_type} sx={{ mb: 2 }} />
+        <Chip label={event.event_type} sx={{ mb: 2 }} variant="outlined" />
 
         <Typography variant="body1" paragraph>{event.description}</Typography>
 
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
-            <Typography variant="subtitle2">Venue</Typography>
-            <Typography variant="body2">{event.venue}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <LocationOn fontSize="small" color="primary" />
+              <Box>
+                <Typography variant="subtitle2">Venue</Typography>
+                <Typography variant="body2">{event.venue}</Typography>
+              </Box>
+            </Box>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <Typography variant="subtitle2">Date</Typography>
-            <Typography variant="body2">
-              {new Date(event.start_date).toLocaleDateString()} - {new Date(event.end_date).toLocaleDateString()}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CalendarMonth fontSize="small" color="primary" />
+              <Box>
+                <Typography variant="subtitle2">Date</Typography>
+                <Typography variant="body2">
+                  {new Date(event.start_date).toLocaleDateString()} – {new Date(event.end_date).toLocaleDateString()}
+                </Typography>
+              </Box>
+            </Box>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <Typography variant="subtitle2">Registration Deadline</Typography>
-            <Typography variant="body2">
-              {new Date(event.registration_deadline).toLocaleDateString()}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Timer fontSize="small" color="primary" />
+              <Box>
+                <Typography variant="subtitle2">Registration Deadline</Typography>
+                <Typography variant="body2">
+                  {new Date(event.registration_deadline).toLocaleDateString()}
+                </Typography>
+              </Box>
+            </Box>
           </Grid>
           <Grid item xs={12} sm={6}>
-            <Typography variant="subtitle2">Max Participants</Typography>
-            <Typography variant="body2">{event.max_participants}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <People fontSize="small" color="primary" />
+              <Box>
+                <Typography variant="subtitle2">Max Participants</Typography>
+                <Typography variant="body2">{event.max_participants}</Typography>
+              </Box>
+            </Box>
           </Grid>
         </Grid>
 
@@ -87,7 +159,7 @@ export default function EventDetail() {
 
             {teams && teams.length > 0 && (
               <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>Or join an existing team:</Typography>
+                <Typography variant="subtitle2" gutterBottom>Join an existing team:</Typography>
                 {teams.map(team => (
                   <Card key={team.id} sx={{ mb: 1 }}>
                     <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
@@ -105,12 +177,12 @@ export default function EventDetail() {
 
             <Typography variant="subtitle2" gutterBottom>Or create a new team:</Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <input
-                type="text"
+              <TextField
+                fullWidth
+                size="small"
                 placeholder="Team Name"
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
-                style={{ padding: '8px', flex: 1 }}
               />
               <Button
                 variant="contained"
@@ -123,6 +195,18 @@ export default function EventDetail() {
           </Box>
         )}
       </Paper>
+
+      {/* Snackbar notification */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} variant="filled" onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   )
 }
