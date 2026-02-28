@@ -55,7 +55,7 @@ async def get_owned_event(
 
     event = response.data[0]
 
-    if current_user.role != "admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to manage this event",
@@ -97,7 +97,7 @@ async def list_events(
     query = supabase_admin.table("events").select(EVENT_LIST_COLUMNS)
 
     # Only show published/completed events to non-organizers
-    if current_user is None or current_user.role not in ["admin", "organizer"]:
+    if current_user is None or current_user.role not in ("super_admin", "organizer"):
         query = query.in_("status", [EventStatus.PUBLISHED.value, EventStatus.COMPLETED.value])
     elif status:
         query = query.eq("status", status.value)
@@ -106,9 +106,9 @@ async def list_events(
         query = query.eq("event_type", event_type.value)
 
     if search:
-        # Escape special characters to prevent SQL injection
-        search_escaped = search.replace('%', r'\%').replace('_', r'\_')
-        query = query.or_(f"name.ilike.%{search_escaped}%,description.ilike.%{search_escaped}%")
+        # Escape PostgREST special characters
+        search_sanitized = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        query = query.or_(f"name.ilike.%{search_sanitized}%,description.ilike.%{search_sanitized}%")
 
     query = query.order("start_date", desc=True).range(offset, offset + limit - 1)
 

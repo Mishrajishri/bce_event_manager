@@ -21,23 +21,39 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
-    
+
     try {
       const { data, error: signInError } = await signIn(email, password)
-      
+
       if (signInError) {
         throw new Error(signInError.message)
       }
-      
+
       if (data.session) {
-        // Get user data from API
-        const userData = await authApi.me()
-        
+        // Try to get full user data from API, fallback to session data
+        let userData
+        try {
+          userData = await authApi.me()
+        } catch {
+          // Fallback: build user from Supabase session metadata
+          const meta = data.user?.user_metadata || {}
+          userData = {
+            id: data.user?.id || '',
+            email: data.user?.email || email,
+            first_name: meta.first_name || '',
+            last_name: meta.last_name || '',
+            phone: meta.phone || undefined,
+            role: meta.role || 'attendee',
+            is_verified: true,
+            created_at: data.user?.created_at || new Date().toISOString(),
+          }
+        }
+
         setAuth(
           userData,
           data.session.access_token,
@@ -51,7 +67,7 @@ export default function Login() {
       setLoading(false)
     }
   }
-  
+
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8 }}>
@@ -59,13 +75,13 @@ export default function Login() {
           <Typography variant="h4" gutterBottom>
             Login
           </Typography>
-          
+
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
-          
+
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
@@ -96,7 +112,7 @@ export default function Login() {
               {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
-          
+
           <Typography variant="body2" sx={{ mt: 2 }} align="center">
             Don't have an account?{' '}
             <Link component={RouterLink} to="/register">

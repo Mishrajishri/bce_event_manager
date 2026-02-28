@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from typing import List, Optional
 import uuid
 import io
+import re
 
 from app.models import (
     RegistrationCreate,
@@ -172,7 +173,7 @@ async def list_event_registrations(
 
     event = event_response.data[0]
 
-    if current_user.role not in ("super_admin",) and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view registrations for this event")
 
     query = supabase_admin.table("registrations").select("*").eq("event_id", event_id)
@@ -197,7 +198,7 @@ async def export_registrations_csv(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     event = event_response.data[0]
-    if current_user.role not in ("super_admin",) and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     regs = supabase_admin.table("registrations").select("*").eq("event_id", event_id).execute()
@@ -209,11 +210,12 @@ async def export_registrations_csv(
         writer.writerow([r["id"], r["user_id"], r["status"], r["payment_status"], r["payment_amount"], r.get("checked_in_at", ""), r["registered_at"]])
 
     output.seek(0)
-    filename = f"registrations_{event['name'].replace(' ', '_')}.csv"
+    safe_name = re.sub(r'[^\w\-]', '_', event['name'])
+    filename = f"registrations_{safe_name}.csv"
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -236,7 +238,7 @@ async def update_registration_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     event = event_response.data[0]
-    if current_user.role not in ("super_admin",) and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to update registrations for this event")
 
     update_data = {k: v for k, v in reg_data.model_dump().items() if v is not None}
@@ -266,7 +268,7 @@ async def delete_registration(
         if not event_response.data:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
         event = event_response.data[0]
-        if current_user.role not in ("super_admin",) and event["organizer_id"] != current_user.user_id:
+        if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to delete this registration")
 
     supabase_admin.table("registrations").delete().eq("id", registration_id).execute()
