@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import logging
 import traceback
 
-from pythonjsonlogger.json import JsonFormatter
+from pythonjsonlogger.jsonlogger import JsonFormatter
 
 from app.config import settings
 from app.routers import (

@@ -181,7 +181,7 @@ async def get_event(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Event not found",
             )
-        if current_user.role not in ["admin", "organizer"] and event["organizer_id"] != current_user.user_id:
+        if current_user.role not in ["super_admin", "organizer"] and event["organizer_id"] != current_user.user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Event not found",

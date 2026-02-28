@@ -65,18 +65,20 @@ export default function EventDetail() {
   if (isLoading) {
     return (
       <Container maxWidth="lg">
-        <Paper sx={{ p: 3 }}>
-          <Skeleton variant="text" width="60%" height={48} />
-          <Skeleton variant="text" width="30%" />
-          <Skeleton variant="rectangular" height={120} sx={{ mt: 2, borderRadius: 2 }} />
-          <Grid container spacing={2} sx={{ mt: 2 }}>
-            {[1, 2, 3, 4].map(i => (
-              <Grid item xs={12} sm={6} key={i}>
-                <Skeleton variant="text" width="40%" />
-                <Skeleton variant="text" width="60%" />
-              </Grid>
-            ))}
-          </Grid>
+        <Paper sx={{ overflow: 'hidden', mb: 3 }}>
+          <Skeleton variant="rectangular" height={300} />
+          <Box sx={{ p: 3 }}>
+            <Skeleton variant="text" width="60%" height={48} />
+            <Skeleton variant="text" width="30%" />
+            <Grid container spacing={2} sx={{ mt: 4 }}>
+              {[1, 2, 3, 4].map(i => (
+                <Grid item xs={12} sm={6} key={i}>
+                  <Skeleton variant="text" width="40%" />
+                  <Skeleton variant="text" width="60%" />
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
         </Paper>
       </Container>
     )
@@ -100,100 +102,108 @@ export default function EventDetail() {
 
   return (
     <Container maxWidth="lg">
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Typography variant="h4">{event.name}</Typography>
-          <Chip label={event.status} color={statusColor(event.status) as any} />
-        </Box>
-
-        <Chip label={event.event_type} sx={{ mb: 2 }} variant="outlined" />
-
-        <Typography variant="body1" paragraph>{event.description}</Typography>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <LocationOn fontSize="small" color="primary" />
-              <Box>
-                <Typography variant="subtitle2">Venue</Typography>
-                <Typography variant="body2">{event.venue}</Typography>
-              </Box>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CalendarMonth fontSize="small" color="primary" />
-              <Box>
-                <Typography variant="subtitle2">Date</Typography>
-                <Typography variant="body2">
-                  {new Date(event.start_date).toLocaleDateString()} – {new Date(event.end_date).toLocaleDateString()}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Timer fontSize="small" color="primary" />
-              <Box>
-                <Typography variant="subtitle2">Registration Deadline</Typography>
-                <Typography variant="body2">
-                  {new Date(event.registration_deadline).toLocaleDateString()}
-                </Typography>
-              </Box>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <People fontSize="small" color="primary" />
-              <Box>
-                <Typography variant="subtitle2">Max Participants</Typography>
-                <Typography variant="body2">{event.max_participants}</Typography>
-              </Box>
-            </Box>
-          </Grid>
-        </Grid>
-
-        {isAuthenticated && canRegister && (
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="h6" gutterBottom>Join Event</Typography>
-
-            {teams && teams.length > 0 && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>Join an existing team:</Typography>
-                {teams.map(team => (
-                  <Card key={team.id} sx={{ mb: 1 }}>
-                    <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="body2">{team.name}</Typography>
-                        <Button size="small" onClick={() => registerMutation.mutate({ team_id: team.id })}>
-                          Join
-                        </Button>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Box>
-            )}
-
-            <Typography variant="subtitle2" gutterBottom>Or create a new team:</Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Team Name"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-              />
-              <Button
-                variant="contained"
-                onClick={() => createTeamMutation.mutate({ name: teamName })}
-                disabled={!teamName}
-              >
-                Create Team
-              </Button>
-            </Box>
+      <Paper sx={{ overflow: 'hidden', mb: 3 }}>
+        <Box
+          component="img"
+          src={event.cover_image || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1200'}
+          alt={event.name}
+          sx={{ width: '100%', height: { xs: 200, md: 350 }, objectFit: 'cover' }}
+        />
+        <Box sx={{ p: { xs: 3, md: 4 } }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            <Typography variant="h4">{event.name}</Typography>
+            <Chip label={event.status} color={statusColor(event.status) as any} />
           </Box>
-        )}
+
+          <Chip label={event.event_type} sx={{ mb: 2 }} variant="outlined" />
+
+          <Typography variant="body1" paragraph>{event.description}</Typography>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LocationOn fontSize="small" color="primary" />
+                <Box>
+                  <Typography variant="subtitle2">Venue</Typography>
+                  <Typography variant="body2">{event.venue}</Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CalendarMonth fontSize="small" color="primary" />
+                <Box>
+                  <Typography variant="subtitle2">Date</Typography>
+                  <Typography variant="body2">
+                    {new Date(event.start_date).toLocaleDateString()} – {new Date(event.end_date).toLocaleDateString()}
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Timer fontSize="small" color="primary" />
+                <Box>
+                  <Typography variant="subtitle2">Registration Deadline</Typography>
+                  <Typography variant="body2">
+                    {new Date(event.registration_deadline).toLocaleDateString()}
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <People fontSize="small" color="primary" />
+                <Box>
+                  <Typography variant="subtitle2">Max Participants</Typography>
+                  <Typography variant="body2">{event.max_participants}</Typography>
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+
+          {isAuthenticated && canRegister && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="h6" gutterBottom>Join Event</Typography>
+
+              {teams && teams.length > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>Join an existing team:</Typography>
+                  {teams.map(team => (
+                    <Card key={team.id} sx={{ mb: 1 }}>
+                      <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2">{team.name}</Typography>
+                          <Button size="small" onClick={() => registerMutation.mutate({ team_id: team.id })}>
+                            Join
+                          </Button>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              )}
+
+              <Typography variant="subtitle2" gutterBottom>Or create a new team:</Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Team Name"
+                  value={teamName}
+                  onChange={(e) => setTeamName(e.target.value)}
+                />
+                <Button
+                  variant="contained"
+                  onClick={() => createTeamMutation.mutate({ name: teamName })}
+                  disabled={!teamName}
+                >
+                  Create Team
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Box>
       </Paper>
 
       {/* Snackbar notification */}

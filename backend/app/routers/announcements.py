@@ -72,7 +72,7 @@ async def create_announcement(
     
     event = event_response.data[0]
     
-    if current_user.role != "admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to create announcements for this event"
@@ -134,7 +134,7 @@ async def delete_announcement(
     event = event_response.data[0]
     
     # Allow deletion by event organizer or announcement creator
-    if current_user.role != "admin" and event["organizer_id"] != current_user.user_id and announcement["created_by_id"] != current_user.user_id:
+    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id and announcement["created_by_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to delete this announcement"

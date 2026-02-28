@@ -62,7 +62,22 @@ export default function Register() {
       }
 
       if (data.session) {
-        const userData = await authApi.me()
+        // Try to fetch the full profile; fall back to local metadata
+        let userData
+        try {
+          userData = await authApi.me()
+        } catch {
+          const meta = data.user?.user_metadata || {}
+          userData = {
+            id: data.user?.id || '',
+            email: data.user?.email || '',
+            first_name: meta.first_name || formData.first_name,
+            last_name: meta.last_name || formData.last_name,
+            role: meta.role || formData.role,
+            is_verified: !!data.user?.email_confirmed_at,
+            created_at: data.user?.created_at || new Date().toISOString(),
+          }
+        }
 
         setAuth(
           userData,
@@ -71,6 +86,7 @@ export default function Register() {
         )
         navigate('/')
       } else {
+        // Email confirmation required
         navigate('/login', { state: { message: 'Registration successful! Please check your email to verify.' } })
       }
     } catch (err) {

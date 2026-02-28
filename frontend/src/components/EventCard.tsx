@@ -1,15 +1,14 @@
-import { Card, CardContent, Typography, Button, Chip, Box } from '@mui/material'
+import { Card, CardContent, CardMedia, Typography, Button, Chip, Box } from '@mui/material'
 import { Link } from 'react-router-dom'
 import { CalendarMonth, LocationOn } from '@mui/icons-material'
+import { Event } from '../types'
 
 interface EventCardProps {
-    event: {
+    event: Partial<Event> & {
         id: string
         name: string
         start_date: string
         status: string
-        venue?: string
-        event_type?: string
     }
 }
 
@@ -30,6 +29,13 @@ const statusColor = (s: string) => {
 export default function EventCard({ event }: EventCardProps) {
     return (
         <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <CardMedia
+                component="img"
+                height="160"
+                image={event.cover_image || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=800'}
+                alt={event.name}
+                sx={{ objectFit: 'cover' }}
+            />
             <CardContent sx={{ flex: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                     <Typography variant="h6" sx={{ flex: 1 }}>{event.name}</Typography>

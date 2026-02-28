@@ -76,7 +76,7 @@ async def create_shift(
     
     event = event_response.data[0]
     
-    if current_user.role not in ["admin", "organizer"] and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ["super_admin", "organizer"] and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to create shifts for this event"
@@ -127,7 +127,7 @@ async def list_volunteers(
     
     event = event_response.data[0]
     
-    if current_user.role not in ["admin", "organizer"] and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ["super_admin", "organizer"] and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to view volunteers for this event"

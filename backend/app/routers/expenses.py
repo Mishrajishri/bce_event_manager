@@ -42,7 +42,7 @@ async def list_expenses(
     
     event = event_response.data[0]
     
-    if current_user.role != "admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to view expenses for this event"
@@ -84,7 +84,7 @@ async def create_expense(
     
     event = event_response.data[0]
     
-    if current_user.role != "admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to add expenses for this event"
@@ -148,7 +148,7 @@ async def update_expense(
     
     event = event_response.data[0]
     
-    if current_user.role != "admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to update expenses for this event"
@@ -205,7 +205,7 @@ async def delete_expense(
     
     event = event_response.data[0]
     
-    if current_user.role != "admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to delete expenses for this event"
