@@ -1,15 +1,13 @@
 """Teams API routes."""
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from app.models import (
-    TeamCreate,
     TeamUpdate,
     TeamResponse,
     TeamMemberCreate,
     TeamMemberResponse,
-    TeamStatus,
 )
-from app.auth import CurrentUser, get_current_user, get_current_user_optional, require_any_user
+from app.auth import CurrentUser, get_current_user_optional, require_any_user
 from app.supabase import supabase_admin
 
 

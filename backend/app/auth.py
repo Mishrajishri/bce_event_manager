@@ -1,10 +1,8 @@
 """Authentication dependencies for FastAPI."""
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from supabase import Client
 from app.supabase import supabase
 from typing import Optional
-import httpx
 
 
 security = HTTPBearer()
@@ -12,7 +10,7 @@ security = HTTPBearer()
 
 class CurrentUser:
     """Current authenticated user context."""
-    
+
     def __init__(self, user_id: str, email: str, role: str = "attendee"):
         self.user_id = user_id
         self.email = email
@@ -24,41 +22,41 @@ async def get_current_user(
 ) -> CurrentUser:
     """
     Validate JWT token from Supabase and return current user.
-    
+
     Args:
         credentials: Bearer token from Authorization header
-        
+
     Returns:
         CurrentUser: Current authenticated user
-        
+
     Raises:
         HTTPException: If token is invalid or user not found
     """
     token = credentials.credentials
-    
+
     try:
         # Verify the JWT token with Supabase
         user_response = supabase.auth.get_user(token)
-        
+
         if not user_response.user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         user = user_response.user
-        
+
         # Get user role from user metadata or custom claims
         role = user.user_metadata.get("role", "attendee") if user.user_metadata else "attendee"
-        
+
         return CurrentUser(
             user_id=user.id,
             email=user.email or "",
             role=role
         )
-        
-    except Exception as e:
+
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -71,18 +69,17 @@ async def get_current_user_optional(
 ) -> Optional[CurrentUser]:
     """
     Get current user if authenticated, otherwise return None.
-    
+
     Args:
         credentials: Optional bearer token
-        
+
     Returns:
         CurrentUser or None
     """
     if not credentials:
         return None
-    
+
     try:
-        # Use await properly since get_current_user is async
         return await get_current_user(credentials)
     except HTTPException:
         return None
@@ -91,10 +88,10 @@ async def get_current_user_optional(
 def require_role(allowed_roles: list[str]):
     """
     Dependency factory for role-based access control.
-    
+
     Args:
         allowed_roles: List of roles that are allowed to access the endpoint
-        
+
     Returns:
         Dependency function that checks user role
     """
@@ -105,11 +102,12 @@ def require_role(allowed_roles: list[str]):
                 detail=f"Access denied. Required roles: {', '.join(allowed_roles)}"
             )
         return current_user
-    
+
     return role_checker
 
 
 # Pre-defined role checkers
-require_admin = require_role(["admin"])
-require_organizer = require_role(["admin", "organizer"])
-require_any_user = require_role(["admin", "organizer", "captain", "attendee"])
+require_super_admin = require_role(["super_admin"])
+require_admin = require_role(["super_admin", "organizer"])
+require_organizer = require_role(["super_admin", "organizer"])
+require_any_user = require_role(["super_admin", "organizer", "captain", "attendee"])

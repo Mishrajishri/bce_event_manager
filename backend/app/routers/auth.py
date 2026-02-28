@@ -1,5 +1,5 @@
 """Authentication routes."""
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from app.models import (
     AuthResponse,
     LoginRequest,
@@ -9,7 +9,6 @@ from app.models import (
 )
 from app.supabase import supabase
 from app.auth import CurrentUser, get_current_user
-from supabase import Client
 
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])

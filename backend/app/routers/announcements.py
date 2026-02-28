@@ -3,10 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from app.models import (
     AnnouncementCreate,
-    AnnouncementUpdate,
     AnnouncementResponse,
 )
-from app.auth import CurrentUser, get_current_user, get_current_user_optional, require_organizer
+from app.auth import CurrentUser, get_current_user_optional, require_organizer
 from app.supabase import supabase_admin
 
 

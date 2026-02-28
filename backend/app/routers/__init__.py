@@ -9,6 +9,9 @@ from app.routers import (
     expenses,
     announcements,
     volunteers,
+    admin,
+    feedback,
+    certificates,
 )
 
 __all__ = [
@@ -21,4 +24,7 @@ __all__ = [
     "expenses",
     "announcements",
     "volunteers",
+    "admin",
+    "feedback",
+    "certificates",
 ]

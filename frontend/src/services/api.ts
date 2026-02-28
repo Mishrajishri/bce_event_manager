@@ -19,25 +19,68 @@ import type {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
+// ---------------------------------------------------------------------------
+// F1 — Status-specific API error class
+// ---------------------------------------------------------------------------
+
+export class ApiError extends Error {
+  status: number
+  code: string
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+
+    // Assign human-readable code
+    switch (status) {
+      case 401:
+        this.code = 'UNAUTHORIZED'
+        break
+      case 403:
+        this.code = 'FORBIDDEN'
+        break
+      case 404:
+        this.code = 'NOT_FOUND'
+        break
+      case 422:
+        this.code = 'VALIDATION_ERROR'
+        break
+      default:
+        this.code = status >= 500 ? 'SERVER_ERROR' : 'REQUEST_ERROR'
+    }
+  }
+}
+
 async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const { accessToken } = useAuthStore.getState()
-  
+  const { accessToken, clearAuth } = useAuthStore.getState()
+
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
   }
-  
+
   if (accessToken) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`
   }
-  
+
   const response = await fetch(url, { ...options, headers })
-  
+
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'An error occurred' }))
-    throw new Error(error.detail || 'Request failed')
+    const body = await response.json().catch(() => ({ detail: 'An error occurred' }))
+    const message = body?.error?.message || body?.detail || 'Request failed'
+
+    // Auto-clear auth on 401 so the user is redirected to login
+    if (response.status === 401) {
+      clearAuth()
+    }
+
+    throw new ApiError(response.status, message)
   }
-  
+
+  // Handle 204 No Content (e.g. DELETE)
+  if (response.status === 204) return null
+
   return response.json()
 }
 
@@ -48,16 +91,16 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<AuthResponse>,
-  
+
   register: (data: RegisterRequest) =>
     fetchWithAuth(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<AuthResponse>,
-  
+
   logout: () =>
     fetchWithAuth(`${API_BASE_URL}/auth/logout`, { method: 'POST' }),
-  
+
   me: () =>
     fetchWithAuth(`${API_BASE_URL}/auth/me`) as Promise<User>,
 }
@@ -68,25 +111,25 @@ export const eventsApi = {
     const query = new URLSearchParams(params as Record<string, string>).toString()
     return fetchWithAuth(`${API_BASE_URL}/events${query ? `?${query}` : ''}`) as Promise<Event[]>
   },
-  
+
   get: (id: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${id}`) as Promise<Event>,
-  
+
   create: (data: EventCreate) =>
     fetchWithAuth(`${API_BASE_URL}/events`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<Event>,
-  
+
   update: (id: string, data: Partial<EventCreate>) =>
     fetchWithAuth(`${API_BASE_URL}/events/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }) as Promise<Event>,
-  
+
   delete: (id: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${id}`, { method: 'DELETE' }),
-  
+
   analytics: (id: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${id}/analytics`) as Promise<EventAnalytics>,
 }
@@ -95,33 +138,33 @@ export const eventsApi = {
 export const teamsApi = {
   listByEvent: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/teams`) as Promise<Team[]>,
-  
+
   create: (eventId: string, data: { name: string }) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/teams`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<Team>,
-  
+
   get: (id: string) =>
     fetchWithAuth(`${API_BASE_URL}/teams/${id}`) as Promise<Team>,
-  
+
   update: (id: string, data: Partial<Team>) =>
     fetchWithAuth(`${API_BASE_URL}/teams/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }) as Promise<Team>,
-  
+
   addMember: (teamId: string, data: { user_id: string; role: string }) =>
     fetchWithAuth(`${API_BASE_URL}/teams/${teamId}/members`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<TeamMember>,
-  
+
   removeMember: (teamId: string, userId: string) =>
     fetchWithAuth(`${API_BASE_URL}/teams/${teamId}/members/${userId}`, {
       method: 'DELETE',
     }),
-  
+
   listMembers: (teamId: string) =>
     fetchWithAuth(`${API_BASE_URL}/teams/${teamId}/members`) as Promise<TeamMember[]>,
 }
@@ -130,25 +173,25 @@ export const teamsApi = {
 export const matchesApi = {
   listByEvent: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches`) as Promise<Match[]>,
-  
+
   create: (eventId: string, data: Omit<Match, 'id' | 'created_at'>) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<Match>,
-  
+
   update: (eventId: string, matchId: string, data: Partial<Match>) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches/${matchId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }) as Promise<Match>,
-  
+
   generateBrackets: (eventId: string, bracketType: 'knockout' | 'round_robin') =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches/brackets/generate`, {
       method: 'POST',
       body: JSON.stringify({ bracket_type: bracketType }),
     }),
-  
+
   getBrackets: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches/brackets`),
 }
@@ -160,13 +203,13 @@ export const registrationsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<Registration>,
-  
+
   myRegistrations: () =>
     fetchWithAuth(`${API_BASE_URL}/registrations/my`) as Promise<Registration[]>,
-  
+
   listByEvent: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/registrations`) as Promise<Registration[]>,
-  
+
   updateStatus: (id: string, data: { status?: string; payment_status?: string }) =>
     fetchWithAuth(`${API_BASE_URL}/registrations/${id}/status`, {
       method: 'PUT',
@@ -178,19 +221,19 @@ export const registrationsApi = {
 export const expensesApi = {
   listByEvent: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/expenses`) as Promise<Expense[]>,
-  
+
   create: (eventId: string, data: Omit<Expense, 'id' | 'created_at'>) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/expenses`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<Expense>,
-  
+
   update: (eventId: string, expenseId: string, data: Partial<Expense>) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/expenses/${expenseId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }) as Promise<Expense>,
-  
+
   delete: (eventId: string, expenseId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/expenses/${expenseId}`, {
       method: 'DELETE',
@@ -201,13 +244,13 @@ export const expensesApi = {
 export const announcementsApi = {
   listByEvent: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/announcements`) as Promise<Announcement[]>,
-  
+
   create: (eventId: string, data: Omit<Announcement, 'id' | 'created_at'>) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/announcements`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<Announcement>,
-  
+
   delete: (eventId: string, announcementId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/announcements/${announcementId}`, {
       method: 'DELETE',
@@ -218,19 +261,83 @@ export const announcementsApi = {
 export const volunteersApi = {
   listShifts: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/shifts`) as Promise<Shift[]>,
-  
+
   createShift: (eventId: string, data: Omit<Shift, 'id' | 'created_at'>) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/shifts`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<Shift>,
-  
+
   listVolunteers: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/volunteers`) as Promise<Volunteer[]>,
-  
+
   assignToShift: (eventId: string, shiftId: string, data: { role: string }) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/shifts/${shiftId}/assign`, {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<Volunteer>,
 }
+
+// Admin API (Super Admin only)
+export const adminApi = {
+  listUsers: (params?: { search?: string; role?: string }) => {
+    const query = params ? new URLSearchParams(params as Record<string, string>).toString() : ''
+    return fetchWithAuth(`${API_BASE_URL}/admin/users${query ? `?${query}` : ''}`) as Promise<import('../types').User[]>
+  },
+
+  getUser: (id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/admin/users/${id}`) as Promise<import('../types').User>,
+
+  updateUser: (id: string, data: { first_name?: string; last_name?: string; role?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/admin/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<import('../types').User>,
+
+  resetPassword: (id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/admin/users/${id}/reset-password`, { method: 'POST' }),
+
+  deleteUser: (id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/admin/users/${id}`, { method: 'DELETE' }),
+
+  listAllEvents: (params?: { status?: string }) => {
+    const query = params ? new URLSearchParams(params as Record<string, string>).toString() : ''
+    return fetchWithAuth(`${API_BASE_URL}/admin/events${query ? `?${query}` : ''}`) as Promise<import('../types').Event[]>
+  },
+
+  reassignEvent: (eventId: string, newOrganizerId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/admin/events/${eventId}/reassign?new_organizer_id=${newOrganizerId}`, {
+      method: 'PUT',
+    }),
+
+  getAuditLogs: (params?: { action?: string; target_type?: string }) => {
+    const query = params ? new URLSearchParams(params as Record<string, string>).toString() : ''
+    return fetchWithAuth(`${API_BASE_URL}/admin/audit-logs${query ? `?${query}` : ''}`) as Promise<import('../types').AuditLog[]>
+  },
+
+  getStats: () =>
+    fetchWithAuth(`${API_BASE_URL}/admin/stats`) as Promise<import('../types').PlatformStats>,
+
+  exportUsersCSV: () => `${API_BASE_URL}/admin/export/users`,
+}
+
+// Feedback API
+export const feedbackApi = {
+  list: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/feedback`) as Promise<import('../types').Feedback[]>,
+
+  create: (eventId: string, data: { rating: number; comment?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<import('../types').Feedback>,
+
+  summary: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/feedback/summary`) as Promise<import('../types').FeedbackSummary>,
+}
+
+// Certificates API
+export const certificatesApi = {
+  download: (eventId: string) => `${API_BASE_URL}/events/${eventId}/certificate`,
+}
+

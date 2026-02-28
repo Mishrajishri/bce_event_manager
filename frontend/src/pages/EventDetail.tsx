@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Container, Typography, Box, Chip, Button, Paper, Grid, Card, CardContent, Alert } from '@mui/material'
+import { Container, Typography, Box, Chip, Button, Paper, Grid, Card, CardContent } from '@mui/material'
 import { useState } from 'react'
 import { eventsApi, teamsApi, registrationsApi } from '../services/api'
 import { useAuthStore } from '../store'
@@ -8,30 +8,30 @@ import { useAuthStore } from '../store'
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
-  const { user, isAuthenticated } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   const [teamName, setTeamName] = useState('')
-  
+
   const { data: event, isLoading } = useQuery({
     queryKey: ['event', id],
     queryFn: () => eventsApi.get(id!),
     enabled: !!id,
   })
-  
+
   const { data: teams } = useQuery({
     queryKey: ['teams', id],
     queryFn: () => teamsApi.listByEvent(id!),
     enabled: !!id,
   })
-  
+
   const registerMutation = useMutation({
-    mutationFn: (data: { team_id?: string; payment_amount?: number }) => 
+    mutationFn: (data: { team_id?: string; payment_amount?: number }) =>
       registrationsApi.register(id!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['registrations'] })
       alert('Registration successful!')
     },
   })
-  
+
   const createTeamMutation = useMutation({
     mutationFn: (data: { name: string }) => teamsApi.create(id!, data),
     onSuccess: () => {
@@ -39,13 +39,13 @@ export default function EventDetail() {
       setTeamName('')
     },
   })
-  
+
   if (isLoading) return <Typography>Loading...</Typography>
   if (!event) return <Typography>Event not found</Typography>
-  
-  const canRegister = new Date(event.registration_deadline) > new Date() && 
+
+  const canRegister = new Date(event.registration_deadline) > new Date() &&
     event.status === 'published'
-  
+
   return (
     <Container maxWidth="lg">
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -53,11 +53,11 @@ export default function EventDetail() {
           <Typography variant="h4">{event.name}</Typography>
           <Chip label={event.status} color="primary" />
         </Box>
-        
+
         <Chip label={event.event_type} sx={{ mb: 2 }} />
-        
+
         <Typography variant="body1" paragraph>{event.description}</Typography>
-        
+
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
             <Typography variant="subtitle2">Venue</Typography>
@@ -80,11 +80,11 @@ export default function EventDetail() {
             <Typography variant="body2">{event.max_participants}</Typography>
           </Grid>
         </Grid>
-        
+
         {isAuthenticated && canRegister && (
           <Box sx={{ mt: 3 }}>
             <Typography variant="h6" gutterBottom>Join Event</Typography>
-            
+
             {teams && teams.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>Or join an existing team:</Typography>
@@ -102,7 +102,7 @@ export default function EventDetail() {
                 ))}
               </Box>
             )}
-            
+
             <Typography variant="subtitle2" gutterBottom>Or create a new team:</Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <input
@@ -112,7 +112,7 @@ export default function EventDetail() {
                 onChange={(e) => setTeamName(e.target.value)}
                 style={{ padding: '8px', flex: 1 }}
               />
-              <Button 
+              <Button
                 variant="contained"
                 onClick={() => createTeamMutation.mutate({ name: teamName })}
                 disabled={!teamName}

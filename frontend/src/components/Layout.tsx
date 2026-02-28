@@ -17,6 +17,7 @@ import {
   Menu,
   MenuItem,
   Avatar,
+  Tooltip,
 } from '@mui/material'
 import {
   Menu as MenuIcon,
@@ -26,9 +27,12 @@ import {
   Assignment as RegistrationIcon,
   Logout as LogoutIcon,
   AccountCircle,
+  DarkMode,
+  LightMode,
+  AdminPanelSettings,
 } from '@mui/icons-material'
 import { useState } from 'react'
-import { useAuthStore, isOrganizer } from '../store'
+import { useAuthStore, useUIStore, isOrganizer, isSuperAdmin } from '../store'
 import { signOut } from '../services/supabase'
 
 const drawerWidth = 240
@@ -38,34 +42,35 @@ export default function Layout() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [mobileOpen, setMobileOpen] = useState(false)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  
+
   const navigate = useNavigate()
   const { user, isAuthenticated, clearAuth } = useAuthStore()
-  
+  const { themeMode, toggleTheme } = useUIStore()
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
   }
-  
+
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
   }
-  
+
   const handleClose = () => {
     setAnchorEl(null)
   }
-  
+
   const handleLogout = async () => {
     await signOut()
     clearAuth()
     navigate('/login')
     handleClose()
   }
-  
+
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, path: '/' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
   ]
-  
+
   if (isAuthenticated) {
     menuItems.push(
       { text: 'My Registrations', icon: <RegistrationIcon />, path: '/my-registrations' }
@@ -75,13 +80,18 @@ export default function Layout() {
         { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' }
       )
     }
+    if (isSuperAdmin(user)) {
+      menuItems.push(
+        { text: 'Admin Panel', icon: <AdminPanelSettings />, path: '/admin' }
+      )
+    }
   }
-  
+
   const drawer = (
-    <Box sx={{ overflow: 'auto' }}>
+    <Box component="nav" sx={{ overflow: 'auto' }} aria-label="Main navigation">
       <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          BCE Events
+        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700 }}>
+          🎪 BCE Events
         </Typography>
       </Toolbar>
       <List>
@@ -96,7 +106,7 @@ export default function Layout() {
       </List>
     </Box>
   )
-  
+
   return (
     <Box sx={{ display: 'flex' }}>
       <AppBar
@@ -112,21 +122,31 @@ export default function Layout() {
             edge="start"
             onClick={handleDrawerToggle}
             sx={{ mr: 2, display: { md: 'none' } }}
+            aria-label="Toggle navigation menu"
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
             BCE Event Manager
           </Typography>
-          
+
+          {/* Dark Mode Toggle */}
+          <Tooltip title={themeMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+            <IconButton color="inherit" onClick={toggleTheme} aria-label="Toggle theme">
+              {themeMode === 'light' ? <DarkMode /> : <LightMode />}
+            </IconButton>
+          </Tooltip>
+
           {isAuthenticated ? (
             <>
               <IconButton
                 size="large"
                 onClick={handleMenu}
                 color="inherit"
+                aria-label="User account menu"
+                aria-haspopup="true"
               >
-                <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                <Avatar sx={{ bgcolor: 'secondary.main', width: 36, height: 36, fontSize: 16 }}>
                   {user?.first_name?.[0] || <AccountCircle />}
                 </Avatar>
               </IconButton>
@@ -138,6 +158,11 @@ export default function Layout() {
                 <MenuItem disabled>
                   <Typography variant="body2">
                     {user?.first_name} {user?.last_name}
+                  </Typography>
+                </MenuItem>
+                <MenuItem disabled>
+                  <Typography variant="caption" color="text.secondary">
+                    {user?.role}
                   </Typography>
                 </MenuItem>
                 <MenuItem onClick={handleLogout}>
@@ -160,7 +185,7 @@ export default function Layout() {
           )}
         </Toolbar>
       </AppBar>
-      
+
       <Box
         component="nav"
         sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
@@ -180,9 +205,10 @@ export default function Layout() {
           {drawer}
         </Drawer>
       </Box>
-      
+
       <Box
         component="main"
+        role="main"
         sx={{
           flexGrow: 1,
           p: 3,

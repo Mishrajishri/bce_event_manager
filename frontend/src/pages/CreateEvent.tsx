@@ -1,140 +1,246 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { Container, Typography, TextField, Button, Paper, Box, MenuItem, Select, FormControl, InputLabel } from '@mui/material'
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  Paper,
+  Box,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  FormHelperText,
+} from '@mui/material'
+import { useForm, Controller } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { eventsApi } from '../services/api'
+
+// F2 — Zod schema for form validation
+const createEventSchema = z
+  .object({
+    name: z.string().min(3, 'Event name must be at least 3 characters'),
+    description: z.string().min(10, 'Description must be at least 10 characters'),
+    event_type: z.enum(['sports', 'tech_fest', 'seminar', 'other'], {
+      required_error: 'Please select an event type',
+    }),
+    venue: z.string().min(2, 'Venue is required'),
+    max_participants: z.coerce.number().int().min(2, 'At least 2 participants required'),
+    start_date: z.string().min(1, 'Start date is required'),
+    end_date: z.string().min(1, 'End date is required'),
+    registration_deadline: z.string().min(1, 'Registration deadline is required'),
+  })
+  .refine((data) => data.end_date > data.start_date, {
+    message: 'End date must be after start date',
+    path: ['end_date'],
+  })
+  .refine((data) => data.registration_deadline <= data.start_date, {
+    message: 'Registration deadline must be on or before start date',
+    path: ['registration_deadline'],
+  })
+
+type CreateEventForm = z.infer<typeof createEventSchema>
 
 export default function CreateEvent() {
   const navigate = useNavigate()
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    event_type: 'sports',
-    venue: '',
-    max_participants: 50,
-    start_date: '',
-    end_date: '',
-    registration_deadline: '',
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CreateEventForm>({
+    resolver: zodResolver(createEventSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      event_type: 'sports',
+      venue: '',
+      max_participants: 50,
+      start_date: '',
+      end_date: '',
+      registration_deadline: '',
+    },
   })
-  
+
   const createMutation = useMutation({
     mutationFn: eventsApi.create,
     onSuccess: (event) => {
       navigate(`/events/${event.id}`)
     },
   })
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
+
+  const onSubmit = (data: CreateEventForm) => {
+    createMutation.mutate(data as any)
   }
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    createMutation.mutate(formData as any)
-  }
-  
+
   return (
     <Container maxWidth="md">
       <Paper sx={{ p: 3 }}>
         <Typography variant="h4" gutterBottom>Create New Event</Typography>
-        
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="Event Name"
+
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Controller
             name="name"
-            value={formData.name}
-            onChange={handleChange}
-            margin="normal"
-            required
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                label="Event Name"
+                margin="normal"
+                required
+                error={!!errors.name}
+                helperText={errors.name?.message}
+                id="event-name"
+              />
+            )}
           />
-          
-          <TextField
-            fullWidth
-            label="Description"
+
+          <Controller
             name="description"
-            value={formData.description}
-            onChange={handleChange}
-            margin="normal"
-            multiline
-            rows={4}
-            required
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                label="Description"
+                margin="normal"
+                multiline
+                rows={4}
+                required
+                error={!!errors.description}
+                helperText={errors.description?.message}
+                id="event-description"
+              />
+            )}
           />
-          
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Event Type</InputLabel>
-            <Select
-              name="event_type"
-              value={formData.event_type}
-              label="Event Type"
-              onChange={handleChange as any}
-            >
-              <MenuItem value="sports">Sports</MenuItem>
-              <MenuItem value="tech_fest">Tech Fest</MenuItem>
-              <MenuItem value="seminar">Seminar</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <TextField
-            fullWidth
-            label="Venue"
+
+          <Controller
+            name="event_type"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth margin="normal" error={!!errors.event_type}>
+                <InputLabel id="event-type-label">Event Type</InputLabel>
+                <Select
+                  {...field}
+                  labelId="event-type-label"
+                  label="Event Type"
+                  id="event-type"
+                >
+                  <MenuItem value="sports">Sports</MenuItem>
+                  <MenuItem value="tech_fest">Tech Fest</MenuItem>
+                  <MenuItem value="seminar">Seminar</MenuItem>
+                  <MenuItem value="other">Other</MenuItem>
+                </Select>
+                {errors.event_type && (
+                  <FormHelperText>{errors.event_type.message}</FormHelperText>
+                )}
+              </FormControl>
+            )}
+          />
+
+          <Controller
             name="venue"
-            value={formData.venue}
-            onChange={handleChange}
-            margin="normal"
-            required
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                label="Venue"
+                margin="normal"
+                required
+                error={!!errors.venue}
+                helperText={errors.venue?.message}
+                id="event-venue"
+              />
+            )}
           />
-          
-          <TextField
-            fullWidth
-            label="Max Participants"
+
+          <Controller
             name="max_participants"
-            type="number"
-            value={formData.max_participants}
-            onChange={handleChange}
-            margin="normal"
-            required
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                label="Max Participants"
+                type="number"
+                margin="normal"
+                required
+                error={!!errors.max_participants}
+                helperText={errors.max_participants?.message}
+                id="event-max-participants"
+              />
+            )}
           />
-          
+
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              fullWidth
-              label="Start Date"
+            <Controller
               name="start_date"
-              type="datetime-local"
-              value={formData.start_date}
-              onChange={handleChange}
-              margin="normal"
-              required
-              InputLabelProps={{ shrink: true }}
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="Start Date"
+                  type="datetime-local"
+                  margin="normal"
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  error={!!errors.start_date}
+                  helperText={errors.start_date?.message}
+                  id="event-start-date"
+                />
+              )}
             />
-            
-            <TextField
-              fullWidth
-              label="End Date"
+
+            <Controller
               name="end_date"
-              type="datetime-local"
-              value={formData.end_date}
-              onChange={handleChange}
-              margin="normal"
-              required
-              InputLabelProps={{ shrink: true }}
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  label="End Date"
+                  type="datetime-local"
+                  margin="normal"
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  error={!!errors.end_date}
+                  helperText={errors.end_date?.message}
+                  id="event-end-date"
+                />
+              )}
             />
           </Box>
-          
-          <TextField
-            fullWidth
-            label="Registration Deadline"
+
+          <Controller
             name="registration_deadline"
-            type="datetime-local"
-            value={formData.registration_deadline}
-            onChange={handleChange}
-            margin="normal"
-            required
-            InputLabelProps={{ shrink: true }}
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                label="Registration Deadline"
+                type="datetime-local"
+                margin="normal"
+                required
+                InputLabelProps={{ shrink: true }}
+                error={!!errors.registration_deadline}
+                helperText={errors.registration_deadline?.message}
+                id="event-reg-deadline"
+              />
+            )}
           />
-          
+
+          {createMutation.isError && (
+            <Typography color="error" sx={{ mt: 2 }}>
+              {(createMutation.error as Error)?.message || 'Failed to create event'}
+            </Typography>
+          )}
+
           <Button
             fullWidth
             type="submit"
@@ -142,6 +248,7 @@ export default function CreateEvent() {
             size="large"
             disabled={createMutation.isPending}
             sx={{ mt: 3 }}
+            aria-label="Create event"
           >
             {createMutation.isPending ? 'Creating...' : 'Create Event'}
           </Button>

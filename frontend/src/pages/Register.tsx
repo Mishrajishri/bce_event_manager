@@ -31,39 +31,39 @@ export default function Register() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | { value: unknown }>) => {
+
+  const handleChange = (e: any) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     })
   }
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
       return
     }
-    
+
     setLoading(true)
-    
+
     try {
       const { data, error: signUpError } = await signUp(formData.email, formData.password, {
         first_name: formData.first_name,
         last_name: formData.last_name,
         role: formData.role,
       })
-      
+
       if (signUpError) {
         throw new Error(signUpError.message)
       }
-      
+
       if (data.session) {
         const userData = await authApi.me()
-        
+
         setAuth(
           userData,
           data.session.access_token,
@@ -79,7 +79,7 @@ export default function Register() {
       setLoading(false)
     }
   }
-  
+
   return (
     <Container maxWidth="sm">
       <Box sx={{ mt: 8 }}>
@@ -87,13 +87,13 @@ export default function Register() {
           <Typography variant="h4" gutterBottom>
             Register
           </Typography>
-          
+
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
-          
+
           <form onSubmit={handleSubmit}>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
@@ -168,7 +168,7 @@ export default function Register() {
               {loading ? 'Registering...' : 'Register'}
             </Button>
           </form>
-          
+
           <Typography variant="body2" sx={{ mt: 2 }} align="center">
             Already have an account?{' '}
             <Link component={RouterLink} to="/login">

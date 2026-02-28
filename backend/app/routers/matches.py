@@ -1,7 +1,7 @@
 """Matches API routes."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
-import math
+
 import random
 from app.models import (
     MatchCreate,
@@ -11,7 +11,7 @@ from app.models import (
     BracketType,
     MatchStatus,
 )
-from app.auth import CurrentUser, get_current_user, require_organizer
+from app.auth import CurrentUser, require_organizer, get_current_user_optional
 from app.supabase import supabase_admin
 
 
@@ -234,7 +234,6 @@ async def generate_brackets(
         
         # Calculate number of rounds
         num_teams = len(teams)
-        num_rounds = math.ceil(math.log2(num_teams))
         
         # Create first round matches
         team_index = 0

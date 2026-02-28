@@ -1,5 +1,5 @@
 // User Types
-export type UserRole = 'admin' | 'organizer' | 'captain' | 'attendee'
+export type UserRole = 'super_admin' | 'admin' | 'organizer' | 'captain' | 'attendee'
 
 export interface User {
   id: string
@@ -97,6 +97,8 @@ export interface Registration {
   payment_amount: number
   payment_method?: string
   transaction_id?: string
+  qr_code?: string
+  checked_in_at?: string
   registered_at: string
 }
 
@@ -150,6 +152,43 @@ export interface Shift {
   created_at: string
 }
 
+// Feedback Types
+export interface Feedback {
+  id: string
+  event_id: string
+  user_id: string
+  rating: number
+  comment?: string
+  created_at: string
+}
+
+export interface FeedbackSummary {
+  event_id: string
+  average_rating: number
+  total_feedback: number
+}
+
+// Audit Log Types
+export interface AuditLog {
+  id: string
+  actor_id?: string
+  action: string
+  target_type: string
+  target_id?: string
+  changes?: Record<string, unknown>
+  created_at: string
+}
+
+// Platform Stats
+export interface PlatformStats {
+  total_users: number
+  total_events: number
+  total_registrations: number
+  total_revenue: number
+  active_events: number
+  users_by_role: Record<string, number>
+}
+
 // Analytics Types
 export interface EventAnalytics {
   total_registrations: number
@@ -188,7 +227,7 @@ export interface RegisterRequest {
 }
 
 // API Response Types
-export interface ApiError {
+export interface ApiErrorResponse {
   detail: string
 }
 

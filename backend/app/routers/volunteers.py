@@ -8,7 +8,7 @@ from app.models import (
     ShiftCreate,
     ShiftResponse,
 )
-from app.auth import CurrentUser, get_current_user, require_any_user, require_organizer
+from app.auth import CurrentUser, get_current_user, require_any_user, require_organizer, get_current_user_optional
 from app.supabase import supabase_admin
 
 

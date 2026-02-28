@@ -1,21 +1,23 @@
-import { Container, Typography, Grid, Paper, Box, Button, Card, CardContent } from '@mui/material'
+import { Container, Typography, Grid, Paper, Box, Button } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Add, TrendingUp, People, AttachMoney } from '@mui/icons-material'
+import { Add } from '@mui/icons-material'
 import { eventsApi } from '../services/api'
 import { useAuthStore } from '../store'
+import StatCard from '../components/StatCard'
+import EventCard from '../components/EventCard'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 export default function Dashboard() {
   const { user } = useAuthStore()
-  
+
   const { data: events } = useQuery({
     queryKey: ['my-events'],
     queryFn: () => eventsApi.list(),
   })
-  
+
   const myEvents = events?.filter(e => e.organizer_id === user?.id) || []
-  
+
   // Mock analytics data
   const analyticsData = [
     { name: 'Jan', registrations: 40 },
@@ -24,65 +26,51 @@ export default function Dashboard() {
     { name: 'Apr', registrations: 80 },
     { name: 'May', registrations: 45 },
   ]
-  
+
   const revenueData = [
     { name: 'Events', revenue: 4000 },
     { name: 'Sponsors', revenue: 3000 },
     { name: 'Registration', revenue: 2000 },
   ]
-  
+
   return (
     <Container maxWidth="lg">
       <Typography variant="h4" gutterBottom>
         Organizer Dashboard
       </Typography>
-      
+
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-        <Button variant="contained" startIcon={<Add />} component={Link} to="/events/create">
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          component={Link}
+          to="/events/create"
+          aria-label="Create a new event"
+        >
           Create Event
         </Button>
       </Box>
-      
-      {/* Stats Cards */}
+
+      {/* Stats Cards — F5: using reusable StatCard */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>Total Events</Typography>
-              <Typography variant="h4">{myEvents.length}</Typography>
-            </CardContent>
-          </Card>
+          <StatCard title="Total Events" value={myEvents.length} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>Total Registrations</Typography>
-              <Typography variant="h4">124</Typography>
-            </CardContent>
-          </Card>
+          <StatCard title="Total Registrations" value={124} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>Total Revenue</Typography>
-              <Typography variant="h4">$9,000</Typography>
-            </CardContent>
-          </Card>
+          <StatCard title="Total Revenue" value="$9,000" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>Active Events</Typography>
-              <Typography variant="h4">{myEvents.filter(e => e.status === 'published').length}</Typography>
-            </CardContent>
-          </Card>
+          <StatCard title="Active Events" value={myEvents.filter(e => e.status === 'published').length} />
         </Grid>
       </Grid>
-      
-      {/* Charts */}
+
+      {/* Charts — F6: aria-labels for accessibility */}
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 3 }} aria-label="Registration trends chart">
             <Typography variant="h6" gutterBottom>Registration Trends</Typography>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={analyticsData}>
@@ -95,9 +83,9 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </Paper>
         </Grid>
-        
+
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: 3 }} aria-label="Revenue sources chart">
             <Typography variant="h6" gutterBottom>Revenue Sources</Typography>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={revenueData}>
@@ -111,8 +99,8 @@ export default function Dashboard() {
           </Paper>
         </Grid>
       </Grid>
-      
-      {/* My Events */}
+
+      {/* My Events — F5: using reusable EventCard */}
       <Typography variant="h5" sx={{ mt: 4, mb: 2 }}>My Events</Typography>
       {myEvents.length === 0 ? (
         <Typography color="text.secondary">You haven't created any events yet.</Typography>
@@ -120,20 +108,7 @@ export default function Dashboard() {
         <Grid container spacing={2}>
           {myEvents.map(event => (
             <Grid item xs={12} sm={6} md={4} key={event.id}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6">{event.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {new Date(event.start_date).toLocaleDateString()}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    Status: {event.status}
-                  </Typography>
-                  <Button size="small" component={Link} to={`/events/${event.id}`} sx={{ mt: 1 }}>
-                    View Details
-                  </Button>
-                </CardContent>
-              </Card>
+              <EventCard event={event} />
             </Grid>
           ))}
         </Grid>

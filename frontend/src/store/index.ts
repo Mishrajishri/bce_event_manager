@@ -6,13 +6,13 @@ import { User, UserRole } from '../types'
  * SECURITY NOTE: Tokens are stored in localStorage for persistence.
  * This is vulnerable to XSS attacks but required for SPA authentication
  * without a backend that supports HttpOnly cookies.
- * 
+ *
  * MITIGATIONS APPLIED:
  * 1. Short token lifetimes with refresh tokens
  * 2. Tokens are cleared on logout
  * 3. Consider implementing short-lived access tokens (15 min) with refresh tokens
  * 4. In production, consider using BFF (Backend for Frontend) pattern with HttpOnly cookies
- * 
+ *
  * TODO for production: Move to HttpOnly secure cookies via BFF pattern
  */
 
@@ -54,18 +54,37 @@ export const useAuthStore = create<AuthState>()(
   )
 )
 
-// UI State
+// UI State — includes theme mode
 interface UIState {
   sidebarOpen: boolean
+  themeMode: 'light' | 'dark'
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
+  toggleTheme: () => void
+  setThemeMode: (mode: 'light' | 'dark') => void
 }
 
-export const useUIStore = create<UIState>((set) => ({
-  sidebarOpen: true,
-  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
-}))
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      sidebarOpen: true,
+      themeMode: 'light',
+      toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
+      toggleTheme: () =>
+        set((state) => ({
+          themeMode: state.themeMode === 'light' ? 'dark' : 'light',
+        })),
+      setThemeMode: (mode) => set({ themeMode: mode }),
+    }),
+    {
+      name: 'ui-storage',
+      partialize: (state) => ({
+        themeMode: state.themeMode,
+      }),
+    }
+  )
+)
 
 // Role checking helpers
 export const hasRole = (user: User | null, roles: UserRole[]): boolean => {
@@ -73,10 +92,14 @@ export const hasRole = (user: User | null, roles: UserRole[]): boolean => {
   return roles.includes(user.role)
 }
 
+export const isSuperAdmin = (user: User | null): boolean => {
+  return hasRole(user, ['super_admin'])
+}
+
 export const isOrganizer = (user: User | null): boolean => {
-  return hasRole(user, ['admin', 'organizer'])
+  return hasRole(user, ['super_admin', 'organizer'])
 }
 
 export const isAdmin = (user: User | null): boolean => {
-  return hasRole(user, ['admin'])
+  return hasRole(user, ['super_admin'])
 }

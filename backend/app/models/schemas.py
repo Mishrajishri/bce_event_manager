@@ -7,6 +7,7 @@ from enum import Enum
 
 # Enums
 class UserRole(str, Enum):
+    SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
     ORGANIZER = "organizer"
     CAPTAIN = "captain"
@@ -103,9 +104,18 @@ class UserResponse(UserBase):
     role: UserRole
     is_verified: bool
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
+
+
+# Admin-specific user update (Super Admin can change roles)
+class AdminUserUpdate(BaseModel):
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    phone: Optional[str] = Field(None, max_length=20)
+    role: Optional[UserRole] = None
+    is_verified: Optional[bool] = None
 
 
 # Event Models
@@ -143,7 +153,7 @@ class EventResponse(EventBase):
     cover_image: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -169,7 +179,7 @@ class TeamResponse(TeamBase):
     captain_id: Optional[str] = None
     status: TeamStatus
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -190,7 +200,7 @@ class TeamMemberResponse(TeamMemberBase):
     team_id: str
     is_active: bool
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -222,7 +232,7 @@ class MatchResponse(MatchBase):
     status: MatchStatus
     winner_id: Optional[str] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -256,10 +266,21 @@ class RegistrationResponse(BaseModel):
     payment_amount: float
     payment_method: Optional[str] = None
     transaction_id: Optional[str] = None
+    qr_code: Optional[str] = None
+    checked_in_at: Optional[datetime] = None
     registered_at: datetime
-    
+
     class Config:
         from_attributes = True
+
+
+# Check-in
+class CheckInResponse(BaseModel):
+    registration_id: str
+    user_id: str
+    event_id: str
+    checked_in_at: datetime
+    message: str
 
 
 # Expense Models
@@ -287,7 +308,7 @@ class ExpenseResponse(ExpenseBase):
     created_by_id: Optional[str] = None
     receipt: Optional[str] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -309,7 +330,7 @@ class SponsorResponse(SponsorBase):
     event_id: str
     logo: Optional[str] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -336,7 +357,7 @@ class AnnouncementResponse(AnnouncementBase):
     event_id: str
     created_by_id: Optional[str] = None
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -358,7 +379,7 @@ class VolunteerResponse(VolunteerBase):
     shift_id: Optional[str] = None
     status: VolunteerStatus
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -380,9 +401,57 @@ class ShiftResponse(ShiftBase):
     id: str
     event_id: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
+
+
+# Feedback Models
+class FeedbackCreate(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    id: str
+    event_id: str
+    user_id: str
+    rating: int
+    comment: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Audit Log Models
+class AuditLogResponse(BaseModel):
+    id: str
+    actor_id: Optional[str] = None
+    action: str
+    target_type: str
+    target_id: Optional[str] = None
+    changes: Optional[dict] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Platform Stats (Super Admin)
+class PlatformStats(BaseModel):
+    total_users: int
+    total_events: int
+    total_registrations: int
+    total_revenue: float
+    active_events: int
+    users_by_role: dict
+
+
+# Certificate Request
+class CertificateRequest(BaseModel):
+    event_id: str
+    user_id: Optional[str] = None
 
 
 # Analytics Models
