@@ -25,7 +25,7 @@ export default function MyRegistrations() {
         <Typography>Loading...</Typography>
       ) : registrations?.length === 0 ? (
         <Typography color="text.secondary">
-          You haven't registered for any events yet.{' '}
+          You haven&apos;t registered for any events yet.{' '}
           <Button component={Link} to="/events">Browse Events</Button>
         </Typography>
       ) : (

@@ -93,7 +93,7 @@ export default function EventDetail() {
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h5" color="text.secondary">😕 Event not found</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            This event may have been removed or doesn't exist.
+            This event may have been removed or doesn&apos;t exist.
           </Typography>
         </Paper>
       </PageContainer>

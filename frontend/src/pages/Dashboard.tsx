@@ -162,7 +162,7 @@ export default function Dashboard() {
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h6" color="text.secondary">📋 No events created yet</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Click "Create Event" to get started!
+            Click &quot;Create Event&quot; to get started!
           </Typography>
         </Paper>
       ) : (
