@@ -5,7 +5,6 @@ from fastapi.responses import StreamingResponse
 import io
 
 from reportlab.lib.pagesizes import landscape, A4
-from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
 from reportlab.pdfgen import canvas
 

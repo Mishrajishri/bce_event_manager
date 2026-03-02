@@ -84,7 +84,7 @@ async def register(user_data: UserCreate):
                 first_name=user_data.first_name,
                 last_name=user_data.last_name,
                 phone=user_data.phone,
-                role=user_data.role,
+                role="super_admin" if user_data.role == "superadmin" else user_data.role,
                 is_verified=True,
                 created_at=auth_response.user.created_at,
             )
@@ -139,7 +139,7 @@ async def login(login_data: LoginRequest):
                 first_name=user_metadata.get("first_name", ""),
                 last_name=user_metadata.get("last_name", ""),
                 phone=user_metadata.get("phone"),
-                role=user_metadata.get("role", "attendee"),
+                role="super_admin" if user_metadata.get("role") == "superadmin" else user_metadata.get("role", "attendee"),
                 is_verified=auth_response.user.email_confirmed_at is not None,
                 created_at=auth_response.user.created_at,
             )
@@ -209,7 +209,7 @@ async def refresh_token(refresh_token: str):
                 first_name=user_metadata.get("first_name", ""),
                 last_name=user_metadata.get("last_name", ""),
                 phone=user_metadata.get("phone"),
-                role=user_metadata.get("role", "attendee"),
+                role="super_admin" if user_metadata.get("role") == "superadmin" else user_metadata.get("role", "attendee"),
                 is_verified=auth_response.user.email_confirmed_at is not None,
                 created_at=auth_response.user.created_at,
             )
@@ -246,7 +246,7 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)):
             first_name=meta.get("first_name", ""),
             last_name=meta.get("last_name", ""),
             phone=meta.get("phone"),
-            role=meta.get("role", current_user.role),
+            role="super_admin" if meta.get("role", current_user.role) == "superadmin" else meta.get("role", current_user.role),
             is_verified=user.email_confirmed_at is not None,
             created_at=user.created_at,
         )

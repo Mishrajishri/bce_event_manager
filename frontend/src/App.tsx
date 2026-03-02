@@ -15,6 +15,7 @@ const CreateEvent = lazy(() => import('./pages/CreateEvent'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const MyRegistrations = lazy(() => import('./pages/MyRegistrations'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
+const Scanner = lazy(() => import('./pages/admin/Scanner'))
 
 function LoadingFallback() {
   return (
@@ -97,6 +98,9 @@ function App() {
             } />
             <Route path="events/create" element={
               <OrganizerRoute><CreateEvent /></OrganizerRoute>
+            } />
+            <Route path="scan" element={
+              <OrganizerRoute><Scanner /></OrganizerRoute>
             } />
 
             {/* Super Admin routes */}

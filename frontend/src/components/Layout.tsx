@@ -30,6 +30,7 @@ import {
   LightMode,
   AdminPanelSettings,
 } from '@mui/icons-material'
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner'
 import { useState } from 'react'
 import { useAuthStore, useUIStore, isOrganizer, isSuperAdmin } from '../store'
 import { signOut } from '../services/supabase'
@@ -75,7 +76,8 @@ export default function Layout() {
 
   if (isOrganizer(user)) {
     menuItems.push(
-      { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' }
+      { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+      { text: 'Scan QR', icon: <QrCodeScannerIcon />, path: '/scan' }
     )
   }
   if (isSuperAdmin(user)) {
@@ -87,9 +89,20 @@ export default function Layout() {
   const drawer = (
     <Box component="nav" sx={{ overflow: 'auto' }} aria-label="Main navigation">
       <Toolbar>
-        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700 }}>
-          🎪 BCE Events
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            component="img"
+            src={themeMode === 'dark' ? "/images/logo_dark.png" : "/images/logo.png"}
+            alt="BCE Logo"
+            sx={{
+              height: 40,
+              objectFit: 'contain'
+            }}
+          />
+          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 700 }}>
+            BCE Events
+          </Typography>
+        </Box>
       </Toolbar>
       <List>
         {menuItems.map((item) => (

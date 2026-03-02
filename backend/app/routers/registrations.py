@@ -52,7 +52,9 @@ async def register_for_event(
             deadline_dt = datetime.fromisoformat(registration_deadline.replace('Z', '+00:00'))
         else:
             deadline_dt = registration_deadline
-        if datetime.now(timezone.utc) > deadline_dt.replace(tzinfo=timezone.utc) if not deadline_dt.tzinfo else deadline_dt:
+        
+        deadline_utc = deadline_dt.replace(tzinfo=timezone.utc) if not deadline_dt.tzinfo else deadline_dt
+        if datetime.now(timezone.utc) > deadline_utc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Registration deadline has passed")
 
     # Check duplicates

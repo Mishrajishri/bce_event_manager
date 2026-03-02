@@ -15,6 +15,10 @@ import type {
   LoginRequest,
   RegisterRequest,
   User,
+  AuditLog,
+  PlatformStats,
+  Feedback,
+  FeedbackSummary,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
@@ -52,8 +56,22 @@ export class ApiError extends Error {
   }
 }
 
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const { accessToken, clearAuth } = useAuthStore.getState()
+let isRefreshing = false;
+let failedQueue: { resolve: (token: string) => void; reject: (error: any) => void }[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else if (token) {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<any> {
+  const { accessToken, refreshToken, setAuth, clearAuth } = useAuthStore.getState()
 
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
@@ -64,13 +82,54 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     (headers as Record<string, string>)['Authorization'] = `Bearer ${accessToken}`
   }
 
-  const response = await fetch(url, { ...options, headers })
+  let response = await fetch(url, { ...options, headers })
+
+  // Handle Token Refresh Interceptor
+  if (response.status === 401 && refreshToken && !url.includes('/auth/refresh') && !url.includes('/auth/login')) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      try {
+        const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh?refresh_token=${encodeURIComponent(refreshToken)}`, { method: 'POST' });
+
+        if (refreshRes.ok) {
+          const authData = await refreshRes.json();
+          setAuth(authData.user, authData.access_token, authData.refresh_token);
+          processQueue(null, authData.access_token);
+
+          // Replay original request with new token
+          (headers as Record<string, string>)['Authorization'] = `Bearer ${authData.access_token}`;
+          response = await fetch(url, { ...options, headers });
+        } else {
+          clearAuth();
+          processQueue(new ApiError(401, 'Session expired'));
+          throw new ApiError(401, 'Session expired');
+        }
+      } catch (err) {
+        clearAuth();
+        processQueue(err);
+        throw err;
+      } finally {
+        isRefreshing = false;
+      }
+    } else {
+      // Queue requests while refreshing
+      return new Promise((resolve, reject) => {
+        failedQueue.push({ resolve, reject });
+      }).then(newToken => {
+        (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`;
+        return fetch(url, { ...options, headers }).then(async res => {
+          if (!res.ok) throw new ApiError(res.status, 'Request failed after refresh');
+          if (res.status === 204) return null;
+          return res.json();
+        });
+      });
+    }
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ detail: 'An error occurred' }))
     const message = body?.error?.message || body?.detail || 'Request failed'
 
-    // Auto-clear auth on 401 so the user is redirected to login
     if (response.status === 401) {
       clearAuth()
     }
@@ -78,7 +137,6 @@ async function fetchWithAuth(url: string, options: RequestInit = {}) {
     throw new ApiError(response.status, message)
   }
 
-  // Handle 204 No Content (e.g. DELETE)
   if (response.status === 204) return null
 
   return response.json()
@@ -215,6 +273,11 @@ export const registrationsApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }) as Promise<Registration>,
+
+  checkIn: (eventId: string, qrCode: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/check-in?qr_code=${encodeURIComponent(qrCode)}`, {
+      method: 'POST',
+    }),
 }
 
 // Expenses API
@@ -282,17 +345,17 @@ export const volunteersApi = {
 export const adminApi = {
   listUsers: (params?: { search?: string; role?: string }) => {
     const query = params ? new URLSearchParams(params as Record<string, string>).toString() : ''
-    return fetchWithAuth(`${API_BASE_URL}/admin/users${query ? `?${query}` : ''}`) as Promise<import('../types').User[]>
+    return fetchWithAuth(`${API_BASE_URL}/admin/users${query ? `?${query}` : ''}`) as Promise<User[]>
   },
 
   getUser: (id: string) =>
-    fetchWithAuth(`${API_BASE_URL}/admin/users/${id}`) as Promise<import('../types').User>,
+    fetchWithAuth(`${API_BASE_URL}/admin/users/${id}`) as Promise<User>,
 
   updateUser: (id: string, data: { first_name?: string; last_name?: string; role?: string }) =>
     fetchWithAuth(`${API_BASE_URL}/admin/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    }) as Promise<import('../types').User>,
+    }) as Promise<User>,
 
   resetPassword: (id: string) =>
     fetchWithAuth(`${API_BASE_URL}/admin/users/${id}/reset-password`, { method: 'POST' }),
@@ -302,7 +365,7 @@ export const adminApi = {
 
   listAllEvents: (params?: { status?: string }) => {
     const query = params ? new URLSearchParams(params as Record<string, string>).toString() : ''
-    return fetchWithAuth(`${API_BASE_URL}/admin/events${query ? `?${query}` : ''}`) as Promise<import('../types').Event[]>
+    return fetchWithAuth(`${API_BASE_URL}/admin/events${query ? `?${query}` : ''}`) as Promise<Event[]>
   },
 
   reassignEvent: (eventId: string, newOrganizerId: string) =>
@@ -312,11 +375,11 @@ export const adminApi = {
 
   getAuditLogs: (params?: { action?: string; target_type?: string }) => {
     const query = params ? new URLSearchParams(params as Record<string, string>).toString() : ''
-    return fetchWithAuth(`${API_BASE_URL}/admin/audit-logs${query ? `?${query}` : ''}`) as Promise<import('../types').AuditLog[]>
+    return fetchWithAuth(`${API_BASE_URL}/admin/audit-logs${query ? `?${query}` : ''}`) as Promise<AuditLog[]>
   },
 
   getStats: () =>
-    fetchWithAuth(`${API_BASE_URL}/admin/stats`) as Promise<import('../types').PlatformStats>,
+    fetchWithAuth(`${API_BASE_URL}/admin/stats`) as Promise<PlatformStats>,
 
   exportUsersCSV: () => `${API_BASE_URL}/admin/export/users`,
 }
@@ -324,16 +387,16 @@ export const adminApi = {
 // Feedback API
 export const feedbackApi = {
   list: (eventId: string) =>
-    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/feedback`) as Promise<import('../types').Feedback[]>,
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/feedback`) as Promise<Feedback[]>,
 
   create: (eventId: string, data: { rating: number; comment?: string }) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/feedback`, {
       method: 'POST',
       body: JSON.stringify(data),
-    }) as Promise<import('../types').Feedback>,
+    }) as Promise<Feedback>,
 
   summary: (eventId: string) =>
-    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/feedback/summary`) as Promise<import('../types').FeedbackSummary>,
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/feedback/summary`) as Promise<FeedbackSummary>,
 }
 
 // Certificates API

@@ -1,12 +1,13 @@
-import { useMemo } from 'react'
-import { Container, Typography, Grid, Paper, Box, Button, Skeleton } from '@mui/material'
+import { Typography, Grid, Paper, Box, Button, Skeleton } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Add } from '@mui/icons-material'
+import { useMemo } from 'react'
 import { eventsApi } from '../services/api'
 import { useAuthStore } from '../store'
 import StatCard from '../components/StatCard'
-import EventCard from '../components/EventCard'
+import { EventCard } from '../components/features/EventCard'
+import { PageContainer } from '../components/layout_components'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 import type { Event } from '../types'
 
@@ -24,13 +25,13 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     if (!myEvents.length) return { totalRegs: 0, revenue: 0, activeCount: 0 }
 
-    const activeCount = myEvents.filter(e => e.status === 'published' || e.status === 'ongoing').length
+    const activeCount = myEvents.filter((e: Event) => e.status === 'published' || e.status === 'ongoing').length
 
     // Aggregate registration counts from event data
-    const totalRegs = myEvents.reduce((sum, e) => sum + (e.current_participants || 0), 0)
+    const totalRegs = myEvents.reduce((sum: number, e: Event) => sum + (e.current_participants || 0), 0)
 
     // Aggregate revenue from paid events
-    const revenue = myEvents.reduce((sum, e) => {
+    const revenue = myEvents.reduce((sum: number, e: Event) => {
       const fee = e.registration_fee || 0
       const participants = e.current_participants || 0
       return sum + (fee * participants)
@@ -45,7 +46,7 @@ export default function Dashboard() {
     const counts: Record<string, number> = {}
     months.forEach(m => { counts[m] = 0 })
 
-    myEvents.forEach(e => {
+    myEvents.forEach((e: Event) => {
       const month = months[new Date(e.start_date).getMonth()]
       counts[month] += (e.current_participants || 0)
     })
@@ -58,7 +59,7 @@ export default function Dashboard() {
   // Revenue by event type
   const revenueByType = useMemo(() => {
     const types: Record<string, number> = {}
-    myEvents.forEach(e => {
+    myEvents.forEach((e: Event) => {
       const fee = e.registration_fee || 0
       const participants = e.current_participants || 0
       const label = (e.event_type || 'other').replace('_', ' ')
@@ -68,24 +69,20 @@ export default function Dashboard() {
     return Object.entries(types).map(([name, revenue]) => ({ name, revenue }))
   }, [myEvents])
 
+  const headerAction = (
+    <Button
+      variant="contained"
+      startIcon={<Add />}
+      component={Link}
+      to="/events/create"
+      aria-label="Create a new event"
+    >
+      Create Event
+    </Button>
+  )
+
   return (
-    <Container maxWidth="lg">
-      <Typography variant="h4" gutterBottom>
-        Organizer Dashboard
-      </Typography>
-
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          component={Link}
-          to="/events/create"
-          aria-label="Create a new event"
-        >
-          Create Event
-        </Button>
-      </Box>
-
+    <PageContainer title="Organizer Dashboard" action={headerAction} maxWidth="xl">
       {/* Stats Cards — real data */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
@@ -157,7 +154,7 @@ export default function Dashboard() {
         <Grid container spacing={2}>
           {[1, 2, 3].map(i => (
             <Grid item xs={12} sm={6} md={4} key={i}>
-              <Skeleton variant="rounded" height={160} />
+              <EventCard isLoading={true} />
             </Grid>
           ))}
         </Grid>
@@ -170,13 +167,13 @@ export default function Dashboard() {
         </Paper>
       ) : (
         <Grid container spacing={2}>
-          {myEvents.map(event => (
+          {myEvents.map((event: Event) => (
             <Grid item xs={12} sm={6} md={4} key={event.id}>
               <EventCard event={event} />
             </Grid>
           ))}
         </Grid>
       )}
-    </Container>
+    </PageContainer>
   )
 }

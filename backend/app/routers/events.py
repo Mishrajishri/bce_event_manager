@@ -55,7 +55,7 @@ async def get_owned_event(
 
     event = response.data[0]
 
-    if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
+    if event["organizer_id"] != current_user.user_id and current_user.role != "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to manage this event",

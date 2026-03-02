@@ -1,26 +1,14 @@
 import { createTheme, Theme } from '@mui/material'
 
 // ---------------------------------------------------------------------------
-// Claymorphism shadow recipes
+// Refined Claymorphism Shadows & Animations
 // ---------------------------------------------------------------------------
 
-const clayShadowLight = [
-    '8px 8px 16px rgba(0, 0, 0, 0.08)',
-    'inset -3px -3px 6px rgba(0, 0, 0, 0.04)',
-    'inset 3px 3px 6px rgba(255, 255, 255, 0.7)',
-].join(', ')
+const clayShadowLight = '8px 8px 16px rgba(0, 0, 0, 0.06), -8px -8px 16px rgba(255, 255, 255, 0.9), inset 1px 1px 2px rgba(255, 255, 255, 0.3)'
+const clayShadowDark = '8px 8px 16px rgba(0, 0, 0, 0.5), -8px -8px 16px rgba(30, 41, 59, 0.4), inset 1px 1px 2px rgba(255, 255, 255, 0.1)'
 
-const clayShadowDark = [
-    '6px 6px 14px rgba(0, 0, 0, 0.35)',
-    'inset -3px -3px 6px rgba(0, 0, 0, 0.2)',
-    'inset 3px 3px 6px rgba(255, 255, 255, 0.04)',
-].join(', ')
-
-const clayButtonShadow = [
-    '4px 4px 10px rgba(0, 0, 0, 0.08)',
-    'inset -2px -2px 4px rgba(0, 0, 0, 0.04)',
-    'inset 2px 2px 4px rgba(255, 255, 255, 0.6)',
-].join(', ')
+const hoverClayShadowLight = '12px 12px 20px rgba(0, 0, 0, 0.08), -12px -12px 20px rgba(255, 255, 255, 1), inset 1px 1px 3px rgba(255, 255, 255, 0.5)'
+const hoverClayShadowDark = '12px 12px 20px rgba(0, 0, 0, 0.6), -12px -12px 20px rgba(30, 41, 59, 0.6), inset 1px 1px 3px rgba(255, 255, 255, 0.15)'
 
 // ---------------------------------------------------------------------------
 // Theme factory
@@ -28,24 +16,36 @@ const clayButtonShadow = [
 
 export function createAppTheme(mode: 'light' | 'dark'): Theme {
     const isLight = mode === 'light'
-    const clayShadow = isLight ? clayShadowLight : clayShadowDark
+
+    // "Soft Alabaster & Indigo" vs "The Esports / Volt"
+    const bgDefault = isLight ? '#F5F5F7' : '#0F172A'
+    const bgPaper = isLight ? '#FFFFFF' : '#1E293B'
+    const textPrimary = isLight ? '#1E293B' : '#F8FAFC'
+    const textSecondary = isLight ? '#64748B' : '#94A3B8'
+    const accentColor = isLight ? '#4353EB' : '#A3E635' // Indigo vs. Volt Green
+
+    // Aurora/Wave Background Colors for organic feel
+    const waveColor1 = isLight ? '#E0E7FF' : '#064E3B'
+    const waveColor2 = isLight ? '#C7D2FE' : '#047857'
+    const waveColor3 = isLight ? '#FFFFFF' : '#1E293B'
 
     return createTheme({
         palette: {
             mode,
             primary: {
-                main: '#7c3aed',
-                light: '#a78bfa',
-                dark: '#5b21b6',
+                main: accentColor,
             },
             secondary: {
-                main: '#ec4899',
-                light: '#f472b6',
-                dark: '#be185d',
+                main: isLight ? '#E0E7FF' : '#365314', // Highlight tag backgrounds
+                contrastText: accentColor,
             },
             background: {
-                default: isLight ? '#f0eaf8' : '#1a1625',
-                paper: isLight ? '#faf5ff' : '#241e35',
+                default: bgDefault,
+                paper: bgPaper,
+            },
+            text: {
+                primary: textPrimary,
+                secondary: textSecondary,
             },
             success: { main: '#10b981' },
             warning: { main: '#f59e0b' },
@@ -54,38 +54,80 @@ export function createAppTheme(mode: 'light' | 'dark'): Theme {
         },
 
         shape: {
-            borderRadius: 20,
+            borderRadius: 16,
         },
 
         typography: {
             fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-            h4: { fontWeight: 700 },
-            h5: { fontWeight: 600 },
-            h6: { fontWeight: 600 },
+            // Applying Golden Ratio (1.618) to Typography Scale
+            // Base = 16px (1rem)
+            body1: { fontSize: '1rem', color: textPrimary },
+            body2: { fontSize: '0.875rem', color: textSecondary },
+            subtitle1: { fontSize: '1rem', fontWeight: 600 },
+            subtitle2: { fontSize: '0.875rem', fontWeight: 600 },
+
+            // h6: ~20px
+            h6: { fontSize: '1.25rem', fontWeight: 600 },
+            // h5: 16px * 1.618 ≈ 26px (~1.625rem)
+            h5: { fontSize: '1.625rem', fontWeight: 600, letterSpacing: '-0.01em' },
+            // h4: 26px * 1.618 ≈ 42px (~2.625rem)
+            h4: { fontSize: '2.625rem', fontWeight: 700, letterSpacing: '-0.02em' },
+            // h3: 42px * 1.618 ≈ 68px (~4.25rem)
+            h3: { fontSize: '4.25rem', fontWeight: 800, letterSpacing: '-0.03em' },
+
             button: { fontWeight: 600, textTransform: 'none' as const },
         },
 
         components: {
+            MuiCssBaseline: {
+                styleOverrides: `
+                    @keyframes waveAurora {
+                        0% { background-position: 0% 0%; }
+                        25% { background-position: 100% 0%; }
+                        50% { background-position: 100% 100%; }
+                        75% { background-position: 0% 100%; }
+                        100% { background-position: 0% 0%; }
+                    }
+                    body {
+                        background-color: ${bgDefault};
+                        background-image: 
+                            radial-gradient(at 0% 0%, ${waveColor1} 0px, transparent 50%),
+                            radial-gradient(at 100% 0%, ${waveColor2} 0px, transparent 50%),
+                            radial-gradient(at 100% 100%, ${waveColor1} 0px, transparent 50%),
+                            radial-gradient(at 0% 100%, ${waveColor3} 0px, transparent 50%);
+                        background-size: 200% 200%;
+                        animation: waveAurora 20s ease-in-out infinite;
+                        color: ${textPrimary};
+                        min-height: 100vh;
+                        background-attachment: fixed;
+                    }
+                `,
+            },
+
             MuiCard: {
                 styleOverrides: {
                     root: {
-                        boxShadow: clayShadow,
-                        borderRadius: 24,
-                        border: isLight ? '1px solid rgba(255,255,255,0.5)' : '1px solid rgba(255,255,255,0.06)',
-                        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                        boxShadow: isLight ? clayShadowLight : clayShadowDark,
+                        backgroundColor: bgPaper,
+                        border: 'none',
+                        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                         '&:hover': {
-                            transform: 'translateY(-2px)',
+                            transform: 'translateY(-4px)',
+                            boxShadow: isLight ? hoverClayShadowLight : hoverClayShadowDark,
                         },
                     },
                 },
             },
 
             MuiPaper: {
+                defaultProps: {
+                    elevation: 0,
+                },
                 styleOverrides: {
                     root: {
-                        boxShadow: clayShadow,
-                        borderRadius: 20,
-                        border: isLight ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.05)',
+                        boxShadow: isLight ? clayShadowLight : clayShadowDark,
+                        border: 'none',
+                        backgroundColor: bgPaper,
                     },
                 },
             },
@@ -93,26 +135,34 @@ export function createAppTheme(mode: 'light' | 'dark'): Theme {
             MuiButton: {
                 styleOverrides: {
                     root: {
-                        borderRadius: 14,
                         padding: '10px 24px',
-                        fontWeight: 600,
-                    },
-                    contained: {
-                        boxShadow: clayButtonShadow,
+                        boxShadow: isLight ? clayShadowLight : clayShadowDark,
                         '&:hover': {
-                            boxShadow: clayShadow,
+                            boxShadow: isLight ? hoverClayShadowLight : hoverClayShadowDark,
                         },
+                        ...(mode === 'dark' && {
+                            color: '#0F172A', // Dark mode buttons with Volt green bg need dark text for contrast
+                        }),
                     },
+                    containedPrimary: {
+                        ...(mode === 'dark' && {
+                            color: '#0F172A',
+                            fontWeight: 800,
+                        }),
+                    }
                 },
             },
 
             MuiAppBar: {
+                defaultProps: {
+                    elevation: 0,
+                },
                 styleOverrides: {
                     root: {
-                        boxShadow: clayShadow,
+                        backgroundColor: isLight ? 'rgba(245, 245, 247, 0.8)' : 'rgba(15, 23, 42, 0.8)',
                         backdropFilter: 'blur(12px)',
-                        backgroundColor: isLight ? 'rgba(250, 245, 255, 0.85)' : 'rgba(26, 22, 37, 0.9)',
-                        color: isLight ? '#1e1b4b' : '#e9d5ff',
+                        borderBottom: isLight ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(255,255,255,0.05)',
+                        color: textPrimary,
                     },
                 },
             },
@@ -120,18 +170,8 @@ export function createAppTheme(mode: 'light' | 'dark'): Theme {
             MuiDrawer: {
                 styleOverrides: {
                     paper: {
-                        backgroundColor: isLight ? '#faf5ff' : '#1e1a2e',
-                        borderRight: isLight ? '1px solid rgba(124,58,237,0.1)' : '1px solid rgba(124,58,237,0.15)',
-                    },
-                },
-            },
-
-            MuiTextField: {
-                styleOverrides: {
-                    root: {
-                        '& .MuiOutlinedInput-root': {
-                            borderRadius: 14,
-                        },
+                        backgroundColor: bgPaper,
+                        borderRight: isLight ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(255,255,255,0.05)',
                     },
                 },
             },
@@ -139,20 +179,10 @@ export function createAppTheme(mode: 'light' | 'dark'): Theme {
             MuiChip: {
                 styleOverrides: {
                     root: {
-                        borderRadius: 12,
+                        fontWeight: 600,
                     },
-                },
-            },
-
-            MuiCssBaseline: {
-                styleOverrides: {
-                    body: {
-                        backgroundImage: isLight
-                            ? 'radial-gradient(circle at 20% 80%, rgba(124,58,237,0.05) 0%, transparent 50%),radial-gradient(circle at 80% 20%, rgba(236,72,153,0.05) 0%, transparent 50%)'
-                            : 'radial-gradient(circle at 20% 80%, rgba(124,58,237,0.08) 0%, transparent 50%),radial-gradient(circle at 80% 20%, rgba(236,72,153,0.06) 0%, transparent 50%)',
-                    },
-                },
-            },
+                }
+            }
         },
     })
 }

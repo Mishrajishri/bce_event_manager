@@ -1,15 +1,18 @@
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Container, Typography, Box, Chip, Button, Paper, Grid, Card, CardContent,
+  Typography, Box, Chip, Button, Paper, Grid, Card, CardContent,
   TextField, Snackbar, Alert, Skeleton,
 } from '@mui/material'
 import { CalendarMonth, LocationOn, People, Timer } from '@mui/icons-material'
 import { useState } from 'react'
 import { eventsApi, teamsApi, registrationsApi } from '../services/api'
 import { useAuthStore } from '../store'
+import { PageContainer } from '../components/layout_components'
 
-const statusColor = (s: string) => {
+type ChipColor = "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning";
+
+const statusColor = (s: string): ChipColor => {
   switch (s) {
     case 'published': return 'success'
     case 'draft': return 'default'
@@ -64,7 +67,7 @@ export default function EventDetail() {
 
   if (isLoading) {
     return (
-      <Container maxWidth="lg">
+      <PageContainer maxWidth="lg">
         <Paper sx={{ overflow: 'hidden', mb: 3 }}>
           <Skeleton variant="rectangular" height={300} />
           <Box sx={{ p: 3 }}>
@@ -80,20 +83,20 @@ export default function EventDetail() {
             </Grid>
           </Box>
         </Paper>
-      </Container>
+      </PageContainer>
     )
   }
 
   if (!event) {
     return (
-      <Container maxWidth="lg">
+      <PageContainer maxWidth="lg">
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h5" color="text.secondary">😕 Event not found</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             This event may have been removed or doesn't exist.
           </Typography>
         </Paper>
-      </Container>
+      </PageContainer>
     )
   }
 
@@ -101,7 +104,7 @@ export default function EventDetail() {
     event.status === 'published'
 
   return (
-    <Container maxWidth="lg">
+    <PageContainer maxWidth="lg">
       <Paper sx={{ overflow: 'hidden', mb: 3 }}>
         <Box
           component="img"
@@ -112,10 +115,10 @@ export default function EventDetail() {
         <Box sx={{ p: { xs: 3, md: 4 } }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
             <Typography variant="h4">{event.name}</Typography>
-            <Chip label={event.status} color={statusColor(event.status) as any} />
+            <Chip label={event.status} color={statusColor(event.status)} sx={{ textTransform: 'capitalize' }} />
           </Box>
 
-          <Chip label={event.event_type} sx={{ mb: 2 }} variant="outlined" />
+          <Chip label={event.event_type.replace('_', ' ')} sx={{ mb: 2, textTransform: 'capitalize' }} variant="outlined" />
 
           <Typography variant="body1" paragraph>{event.description}</Typography>
 
@@ -217,6 +220,6 @@ export default function EventDetail() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </PageContainer>
   )
 }

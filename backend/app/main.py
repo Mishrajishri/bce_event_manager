@@ -84,7 +84,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """Handle Pydantic / request‐body validation errors."""
     errors = exc.errors()
     messages = "; ".join(
-        f"{'.'.join(str(l) for l in e['loc'])}: {e['msg']}" for e in errors
+        f"{'.'.join(str(loc_item) for loc_item in e['loc'])}: {e['msg']}" for e in errors
     )
     logger.warning("Validation error", extra={"path": str(request.url), "errors": errors})
     return _error_response(status.HTTP_422_UNPROCESSABLE_ENTITY, messages)

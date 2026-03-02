@@ -1,8 +1,7 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import {
-  Container,
-  Typography,
   TextField,
   Button,
   Paper,
@@ -12,11 +11,13 @@ import {
   FormControl,
   InputLabel,
   FormHelperText,
+  Alert,
 } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { eventsApi } from '../services/api'
+import { PageContainer } from '../components/layout_components'
 
 // F2 — Zod schema for form validation
 const createEventSchema = z
@@ -45,6 +46,7 @@ type CreateEventForm = z.infer<typeof createEventSchema>
 
 export default function CreateEvent() {
   const navigate = useNavigate()
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const {
     control,
@@ -69,17 +71,29 @@ export default function CreateEvent() {
     onSuccess: (event) => {
       navigate(`/events/${event.id}`)
     },
+    onError: (error: Error) => {
+      setSubmitError(error.message || 'Failed to create event. Please try again.')
+    },
   })
 
   const onSubmit = (data: CreateEventForm) => {
-    createMutation.mutate(data as any)
+    setSubmitError(null)
+    const payload: import('../types').EventCreate = {
+      name: data.name,
+      description: data.description,
+      event_type: data.event_type as import('../types').EventType,
+      venue: data.venue,
+      max_participants: data.max_participants,
+      start_date: data.start_date,
+      end_date: data.end_date,
+      registration_deadline: data.registration_deadline,
+    }
+    createMutation.mutate(payload)
   }
 
   return (
-    <Container maxWidth="md">
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>Create New Event</Typography>
-
+    <PageContainer title="Create New Event" maxWidth="md">
+      <Paper sx={{ p: 4 }}>
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <Controller
             name="name"
@@ -176,7 +190,7 @@ export default function CreateEvent() {
             )}
           />
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
             <Controller
               name="start_date"
               control={control}
@@ -235,10 +249,10 @@ export default function CreateEvent() {
             )}
           />
 
-          {createMutation.isError && (
-            <Typography color="error" sx={{ mt: 2 }}>
-              {(createMutation.error as Error)?.message || 'Failed to create event'}
-            </Typography>
+          {submitError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {submitError}
+            </Alert>
           )}
 
           <Button
@@ -254,6 +268,6 @@ export default function CreateEvent() {
           </Button>
         </form>
       </Paper>
-    </Container>
+    </PageContainer>
   )
 }
