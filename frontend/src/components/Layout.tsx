@@ -175,6 +175,12 @@ export default function Layout() {
                 {user?.role}
               </Typography>
             </MenuItem>
+            <MenuItem onClick={() => { navigate('/profile'); handleClose(); }}>
+              <ListItemIcon>
+                <AccountCircle fontSize="small" />
+              </ListItemIcon>
+              Profile
+            </MenuItem>
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>
                 <LogoutIcon fontSize="small" />

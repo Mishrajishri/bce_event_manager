@@ -16,7 +16,7 @@ router = APIRouter(prefix="/events/{event_id}/expenses", tags=["Expenses"])
 @router.get("/", response_model=List[ExpenseResponse])
 async def list_expenses(
     event_id: str,
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_organizer),
 ):
     """
     List all expenses for an event.

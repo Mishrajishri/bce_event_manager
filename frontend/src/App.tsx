@@ -16,6 +16,18 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const MyRegistrations = lazy(() => import('./pages/MyRegistrations'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const Scanner = lazy(() => import('./pages/admin/Scanner'))
+const SubmitProject = lazy(() => import('./pages/SubmitProject'))
+const TeamBoard = lazy(() => import('./pages/TeamBoard'))
+const JudgingDashboard = lazy(() => import('./pages/JudgingDashboard'))
+const MentorshipBooking = lazy(() => import('./pages/MentorshipBooking'))
+const LiveScoreboard = lazy(() => import('./pages/LiveScoreboard'))
+const Scorekeeper = lazy(() => import('./pages/Scorekeeper'))
+const MatchList = lazy(() => import('./pages/MatchList'))
+const BracketView = lazy(() => import('./pages/BracketView'))
+const PerformanceSchedule = lazy(() => import('./pages/PerformanceSchedule'))
+const PaperSubmissionPortal = lazy(() => import('./pages/PaperSubmissionPortal'))
+const ReviewerDashboard = lazy(() => import('./pages/ReviewerDashboard'))
+const Profile = lazy(() => import('./pages/Profile'))
 
 function LoadingFallback() {
   return (
@@ -90,6 +102,15 @@ function App() {
             <Route path="home" element={<Home />} />
             <Route path="events" element={<Events />} />
             <Route path="events/:id" element={<EventDetail />} />
+            <Route path="events/:eventId/submit" element={<SubmitProject />} />
+            <Route path="events/:eventId/teams" element={<TeamBoard />} />
+            <Route path="events/:eventId/mentorship" element={<MentorshipBooking />} />
+            <Route path="events/:eventId/matches" element={<MatchList />} />
+            <Route path="events/:eventId/brackets" element={<BracketView />} />
+            <Route path="events/:eventId/matches/:matchId" element={<LiveScoreboard />} />
+            <Route path="events/:eventId/performances" element={<PerformanceSchedule />} />
+            <Route path="events/:eventId/academic/submit" element={<PaperSubmissionPortal />} />
+            <Route path="profile" element={<Profile />} />
             <Route path="my-registrations" element={<MyRegistrations />} />
 
             {/* Organizer routes */}
@@ -101,6 +122,15 @@ function App() {
             } />
             <Route path="scan" element={
               <OrganizerRoute><Scanner /></OrganizerRoute>
+            } />
+            <Route path="events/:eventId/judging" element={
+              <OrganizerRoute><JudgingDashboard /></OrganizerRoute>
+            } />
+            <Route path="events/:eventId/matches/:matchId/score" element={
+              <OrganizerRoute><Scorekeeper /></OrganizerRoute>
+            } />
+            <Route path="events/:eventId/academic/review" element={
+              <OrganizerRoute><ReviewerDashboard /></OrganizerRoute>
             } />
 
             {/* Super Admin routes */}

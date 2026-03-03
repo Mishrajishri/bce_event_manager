@@ -7,6 +7,7 @@ from app.models import (
 )
 from app.auth import CurrentUser, get_current_user_optional, require_organizer
 from app.supabase import supabase_admin
+import bleach
 
 
 router = APIRouter(prefix="/events/{event_id}/announcements", tags=["Announcements"])
@@ -82,6 +83,9 @@ async def create_announcement(
     data = announcement_data.model_dump()
     data["event_id"] = event_id
     data["created_by_id"] = current_user.user_id
+    
+    data["title"] = bleach.clean(announcement_data.title, tags=[], strip=True)
+    data["message"] = bleach.clean(announcement_data.message, tags=['p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li'], strip=True)
     
     response = supabase_admin.table("announcements").insert(data).execute()
     

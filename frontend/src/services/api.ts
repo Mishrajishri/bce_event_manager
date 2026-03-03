@@ -19,6 +19,20 @@ import type {
   PlatformStats,
   Feedback,
   FeedbackSummary,
+  ProjectSubmission,
+  ProjectSubmissionCreate,
+  ProjectSubmissionUpdate,
+  JudgingRubric,
+  JudgingRubricCreate,
+  SubmissionScore,
+  SubmissionScoreCreate,
+  LeaderboardEntry,
+  TeamRequest,
+  TeamRequestCreate,
+  Mentor,
+  MentorshipSlot,
+  MentorshipBooking,
+  MentorshipBookingCreate,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
@@ -161,6 +175,12 @@ export const authApi = {
 
   me: () =>
     fetchWithAuth(`${API_BASE_URL}/auth/me`) as Promise<User>,
+
+  updateProfile: (data: Partial<User>) =>
+    fetchWithAuth(`${API_BASE_URL}/auth/me`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<User>,
 }
 
 // Events API
@@ -190,6 +210,15 @@ export const eventsApi = {
 
   analytics: (id: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${id}/analytics`) as Promise<EventAnalytics>,
+
+  getConfig: (id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${id}/config`) as Promise<any>,
+
+  updateConfig: (id: string, data: Record<string, any>) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${id}/config`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 }
 
 // Teams API
@@ -232,6 +261,9 @@ export const matchesApi = {
   listByEvent: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches`) as Promise<Match[]>,
 
+  get: (eventId: string, matchId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches/${matchId}`) as Promise<Match>,
+
   create: (eventId: string, data: Omit<Match, 'id' | 'created_at'>) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches`, {
       method: 'POST',
@@ -252,6 +284,63 @@ export const matchesApi = {
 
   getBrackets: (eventId: string) =>
     fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches/brackets`),
+
+  listCommentary: (eventId: string, matchId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches/${matchId}/commentary`) as Promise<any[]>,
+
+  addCommentary: (eventId: string, matchId: string, data: { content: string, type?: string, team_id?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/matches/${matchId}/commentary`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+}
+
+// Cultural API
+export const culturalApi = {
+  listPerformances: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/cultural/performances`) as Promise<any[]>,
+
+  createPerformance: (eventId: string, data: any) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/cultural/performances`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  addRequirement: (eventId: string, performanceId: string, data: any) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/cultural/performances/${performanceId}/requirements`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateStatus: (eventId: string, performanceId: string, status: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/cultural/performances/${performanceId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+}
+
+// Academic API
+export const academicApi = {
+  listSubmissions: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/academic/submissions`) as Promise<any[]>,
+
+  submitPaper: (eventId: string, data: any) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/academic/submissions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  reviewPaper: (eventId: string, submissionId: string, data: any) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/academic/submissions/${submissionId}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateStatus: (eventId: string, submissionId: string, status: string) =>
+    fetchWithAuth(`${API_BASE_URL}/events/${eventId}/academic/submissions/${submissionId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 }
 
 // Registrations API
@@ -402,5 +491,73 @@ export const feedbackApi = {
 // Certificates API
 export const certificatesApi = {
   download: (eventId: string) => `${API_BASE_URL}/events/${eventId}/certificate`,
+}
+
+// Tech Events API
+export const techApi = {
+  submitProject: (data: ProjectSubmissionCreate) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/submissions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<ProjectSubmission>,
+
+  updateSubmission: (id: string, data: ProjectSubmissionUpdate) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/submissions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<ProjectSubmission>,
+
+  listSubmissions: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/events/${eventId}/submissions`) as Promise<ProjectSubmission[]>,
+
+  createRubric: (eventId: string, data: JudgingRubricCreate) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/events/${eventId}/rubrics`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<JudgingRubric>,
+
+  listRubrics: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/events/${eventId}/rubrics`) as Promise<JudgingRubric[]>,
+
+  submitScore: (submissionId: string, data: SubmissionScoreCreate) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/submissions/${submissionId}/scores`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<SubmissionScore>,
+
+  getLeaderboard: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/events/${eventId}/leaderboard`) as Promise<LeaderboardEntry[]>,
+
+  // Team Requests
+  createTeamRequest: (data: TeamRequestCreate) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/team-requests`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<TeamRequest>,
+
+  listTeamRequests: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/teams/${teamId}/requests`) as Promise<TeamRequest[]>,
+
+  listMyRequests: () =>
+    fetchWithAuth(`${API_BASE_URL}/tech/team-requests/my`) as Promise<TeamRequest[]>,
+
+  updateTeamRequest: (requestId: string, status: 'accepted' | 'declined' | 'cancelled') =>
+    fetchWithAuth(`${API_BASE_URL}/tech/team-requests/${requestId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    }) as Promise<TeamRequest>,
+
+  // Mentorship
+  listMentors: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/events/${eventId}/mentors`) as Promise<Mentor[]>,
+
+  listMentorSlots: (mentor_id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/mentors/${mentor_id}/slots`) as Promise<MentorshipSlot[]>,
+
+  bookMentorship: (data: MentorshipBookingCreate) =>
+    fetchWithAuth(`${API_BASE_URL}/tech/mentorship/bookings`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<MentorshipBooking>,
 }
 

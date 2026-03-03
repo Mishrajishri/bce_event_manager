@@ -52,8 +52,10 @@ async def register_for_event(
             deadline_dt = datetime.fromisoformat(registration_deadline.replace('Z', '+00:00'))
         else:
             deadline_dt = registration_deadline
+            if not getattr(deadline_dt, 'tzinfo', None):
+                deadline_dt = deadline_dt.replace(tzinfo=timezone.utc)
         
-        deadline_utc = deadline_dt.replace(tzinfo=timezone.utc) if not deadline_dt.tzinfo else deadline_dt
+        deadline_utc = deadline_dt.replace(tzinfo=timezone.utc) if not getattr(deadline_dt, 'tzinfo', None) else deadline_dt.astimezone(timezone.utc)
         if datetime.now(timezone.utc) > deadline_utc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Registration deadline has passed")
 
@@ -68,8 +70,10 @@ async def register_for_event(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Event is full")
 
     # Create registration with QR code
-    qr_code = _generate_qr_code(str(uuid.uuid4()))
+    registration_id = str(uuid.uuid4())
+    qr_code = _generate_qr_code(registration_id)
     data = {
+        "id": registration_id,
         "user_id": current_user.user_id,
         "event_id": event_id,
         "team_id": reg_data.team_id,
@@ -205,11 +209,25 @@ async def export_registrations_csv(
 
     regs = supabase_admin.table("registrations").select("*").eq("event_id", event_id).execute()
 
+    def sanitize_csv_value(value: str) -> str:
+        v = str(value)
+        if v and v[0] in ['=', '+', '-', '@']:
+            return "'" + v
+        return v
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["ID", "User ID", "Status", "Payment Status", "Amount", "Checked In", "Registered At"])
     for r in regs.data:
-        writer.writerow([r["id"], r["user_id"], r["status"], r["payment_status"], r["payment_amount"], r.get("checked_in_at", ""), r["registered_at"]])
+        writer.writerow([
+            sanitize_csv_value(r["id"]), 
+            sanitize_csv_value(r["user_id"]), 
+            sanitize_csv_value(r["status"]), 
+            sanitize_csv_value(r["payment_status"]), 
+            r["payment_amount"], 
+            sanitize_csv_value(r.get("checked_in_at", "")), 
+            sanitize_csv_value(r["registered_at"])
+        ])
 
     output.seek(0)
     safe_name = re.sub(r'[^\w\-]', '_', event['name'])

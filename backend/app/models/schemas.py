@@ -1,8 +1,11 @@
 """Pydantic models for request/response validation."""
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field, field_validator
+import re
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from urllib.parse import urlparse
 
 
 # Enums
@@ -18,6 +21,11 @@ class EventType(str, Enum):
     SPORTS = "sports"
     TECH_FEST = "tech_fest"
     SEMINAR = "seminar"
+    HACKATHON = "hackathon"
+    CODING_COMPETITION = "coding_competition"
+    CULTURAL = "cultural"
+    WORKSHOP = "workshop"
+    PAPER_PRESENTATION = "paper_presentation"
     OTHER = "other"
 
 
@@ -86,11 +94,23 @@ class UserBase(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
     phone: Optional[str] = Field(None, max_length=20)
+    enrollment_number: Optional[str] = Field(None, max_length=20)
+    branch: Optional[str] = Field(None, max_length=50)
+    year: Optional[int] = Field(None, ge=1, le=5)
+    college_name: Optional[str] = Field(None, max_length=255)
+    is_external: bool = False
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=12)
     role: UserRole = UserRole.ATTENDEE
+
+    @field_validator('password')
+    @classmethod
+    def validate_password_complexity(cls, v):
+        if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$', v):
+            raise ValueError('Password must be 12+ chars with uppercase, lowercase, number, and special char')
+        return v
 
 
 class UserUpdate(BaseModel):
@@ -123,6 +143,7 @@ class EventBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: str
     event_type: EventType
+    category: Optional[str] = Field(None, max_length=50)
     start_date: datetime
     end_date: datetime
     venue: str = Field(..., min_length=1, max_length=255)
@@ -131,13 +152,14 @@ class EventBase(BaseModel):
 
 
 class EventCreate(EventBase):
-    pass
+    config_data: Optional[Dict[str, Any]] = None
 
 
 class EventUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     event_type: Optional[EventType] = None
+    category: Optional[str] = Field(None, max_length=50)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     venue: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -237,10 +259,60 @@ class MatchResponse(MatchBase):
         from_attributes = True
 
 
+# Match Commentary Models
+class MatchCommentaryBase(BaseModel):
+    content: str
+    type: str = "general"
+    team_id: Optional[str] = None
+    player_id: Optional[str] = None
+
+class MatchCommentaryCreate(MatchCommentaryBase):
+    match_id: str
+
+class MatchCommentaryResponse(MatchCommentaryBase):
+    id: str
+    match_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Score History Models
+class ScoreHistoryBase(BaseModel):
+    match_id: str
+    score_team1: int
+    score_team2: int
+    changed_by: Optional[str] = None
+
+class ScoreHistoryResponse(ScoreHistoryBase):
+    id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # Bracket Generation
 class BracketGenerateRequest(BaseModel):
     bracket_type: BracketType
     event_id: str
+
+
+# Event Type Config Models
+class EventTypeConfigBase(BaseModel):
+    config_type: str = Field(..., max_length=50)
+    config_data: dict
+
+class EventTypeConfigCreate(EventTypeConfigBase):
+    event_id: str
+
+class EventTypeConfigResponse(EventTypeConfigBase):
+    id: str
+    event_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 # Registration Models
@@ -293,6 +365,19 @@ class ExpenseBase(BaseModel):
 
 class ExpenseCreate(ExpenseBase):
     event_id: str
+    receipt: Optional[str] = None
+
+    @field_validator('receipt')
+    @classmethod
+    def validate_receipt(cls, v):
+        if v:
+            parsed = urlparse(v)
+            if parsed.scheme not in ["http", "https"]:
+                raise ValueError("Receipt must be a valid URL")
+            ext = Path(parsed.path).suffix.lower()
+            if ext and ext not in ['.pdf', '.jpg', '.jpeg', '.png']:
+                raise ValueError("Invalid file extension")
+        return v
 
 
 class ExpenseUpdate(BaseModel):
@@ -300,6 +385,19 @@ class ExpenseUpdate(BaseModel):
     description: Optional[str] = Field(None, min_length=1, max_length=255)
     amount: Optional[float] = Field(None, ge=0)
     date: Optional[datetime] = None
+    receipt: Optional[str] = None
+
+    @field_validator('receipt')
+    @classmethod
+    def validate_receipt(cls, v):
+        if v:
+            parsed = urlparse(v)
+            if parsed.scheme not in ["http", "https"]:
+                raise ValueError("Receipt must be a valid URL")
+            ext = Path(parsed.path).suffix.lower()
+            if ext and ext not in ['.pdf', '.jpg', '.jpeg', '.png']:
+                raise ValueError("Invalid file extension")
+        return v
 
 
 class ExpenseResponse(ExpenseBase):
@@ -486,3 +584,234 @@ class LoginRequest(BaseModel):
 class MessageResponse(BaseModel):
     message: str
     success: bool = True
+
+
+# ============================================
+# Phase 2: Tech Events Models
+# ============================================
+
+# Project Submissions
+class ProjectSubmissionBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    github_url: Optional[str] = None
+    demo_video_url: Optional[str] = None
+    pitch_deck_url: Optional[str] = None
+    tech_stack: Optional[List[str]] = None
+
+class ProjectSubmissionCreate(ProjectSubmissionBase):
+    event_id: str
+    team_id: str
+
+class ProjectSubmissionUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    github_url: Optional[str] = None
+    demo_video_url: Optional[str] = None
+    pitch_deck_url: Optional[str] = None
+    tech_stack: Optional[List[str]] = None
+    status: Optional[str] = None
+
+class ProjectSubmissionResponse(ProjectSubmissionBase):
+    id: str
+    event_id: str
+    team_id: str
+    submitted_at: datetime
+    status: str
+
+    class Config:
+        from_attributes = True
+
+# Judging Rubrics
+class JudgingRubricBase(BaseModel):
+    criteria_name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    max_score: int = Field(10, gt=0)
+    weight: float = Field(1.0, gt=0)
+    display_order: int = 0
+
+class JudgingRubricCreate(JudgingRubricBase):
+    event_id: str
+
+class JudgingRubricResponse(JudgingRubricBase):
+    id: str
+    event_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Submission Scores
+class SubmissionScoreBase(BaseModel):
+    score: int = Field(..., ge=0)
+    comments: Optional[str] = None
+
+class SubmissionScoreCreate(SubmissionScoreBase):
+    submission_id: str
+    rubric_id: str
+
+class SubmissionScoreResponse(SubmissionScoreBase):
+    id: str
+    submission_id: str
+    judge_id: str
+    rubric_id: str
+    scored_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Team Requests
+class TeamRequestStatus(str, Enum):
+    pending = "pending"
+    accepted = "accepted"
+    declined = "declined"
+    cancelled = "cancelled"
+
+class TeamRequestBase(BaseModel):
+    message: Optional[str] = None
+
+class TeamRequestCreate(TeamRequestBase):
+    team_id: str
+
+class TeamRequestUpdate(BaseModel):
+    status: TeamRequestStatus
+
+class TeamRequestResponse(TeamRequestBase):
+    id: str
+    team_id: str
+    user_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Mentorship
+class MentorBase(BaseModel):
+    expertise_areas: List[str]
+    bio: Optional[str] = None
+    is_available: bool = True
+
+class MentorCreate(MentorBase):
+    event_id: str
+    user_id: str
+
+class MentorResponse(MentorBase):
+    id: str
+    event_id: str
+    user_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class MentorshipSlotBase(BaseModel):
+    start_time: datetime
+    end_time: datetime
+    meeting_link: Optional[str] = None
+
+class MentorshipSlotCreate(MentorshipSlotBase):
+    mentor_id: str
+
+class MentorshipSlotResponse(MentorshipSlotBase):
+    id: str
+    mentor_id: str
+    is_booked: bool
+
+    class Config:
+        from_attributes = True
+
+class MentorshipBookingCreate(BaseModel):
+    slot_id: str
+    team_id: str
+    notes: Optional[str] = None
+
+class MentorshipBookingResponse(BaseModel):
+    id: str
+    slot_id: str
+    team_id: str
+    notes: Optional[str] = None
+    booked_at: datetime
+
+    class Config:
+        from_attributes = True
+# ============================================
+# Phase 4: Cultural & Academic
+# ============================================
+
+class PerformanceStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class ParticipantType(str, Enum):
+    INDIVIDUAL = "individual"
+    TEAM = "team"
+
+class CulturalPerformanceCreate(BaseModel):
+    participant_id: str
+    participant_type: ParticipantType
+    title: str
+    description: Optional[str] = None
+    duration_minutes: int = 10
+
+class CulturalPerformanceResponse(CulturalPerformanceCreate):
+    id: str
+    event_id: str
+    scheduled_start: Optional[datetime] = None
+    status: PerformanceStatus
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PerformanceRequirementCreate(BaseModel):
+    requirement_type: str # 'audio', 'lighting', 'props', 'other'
+    details: str
+
+class PerformanceRequirementResponse(PerformanceRequirementCreate):
+    id: str
+    performance_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PaperSubmissionStatus(str, Enum):
+    SUBMITTED = "submitted"
+    UNDER_REVIEW = "under_review"
+    REVISION_REQUIRED = "revision_required"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+class PaperSubmissionCreate(BaseModel):
+    title: str
+    abstract: str
+    file_url: Optional[str] = None
+
+class PaperSubmissionResponse(PaperSubmissionCreate):
+    id: str
+    event_id: str
+    author_id: str
+    status: PaperSubmissionStatus
+    submission_date: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PaperReviewCreate(BaseModel):
+    score: int = Field(..., ge=0, le=100)
+    comments: Optional[str] = None
+
+class PaperReviewResponse(PaperReviewCreate):
+    id: str
+    submission_id: str
+    reviewer_id: str
+    reviewed_at: datetime
+
+    class Config:
+        from_attributes = True

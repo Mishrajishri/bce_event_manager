@@ -6,8 +6,14 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import traceback
+import socketio
+from app.socket_manager import sio
 
 from pythonjsonlogger.jsonlogger import JsonFormatter
+
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.limiter import limiter
 
 from app.config import settings
 from app.routers import (
@@ -23,6 +29,9 @@ from app.routers import (
     admin,
     feedback,
     certificates,
+    tech,
+    cultural,
+    academic,
 )
 
 # Configure structured JSON logging
@@ -59,6 +68,7 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
 
 
 # ---------------------------------------------------------------------------
@@ -122,15 +132,24 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 # ---------------------------------------------------------------------------
-# CORS
+# Security Headers & CORS
 # ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include routers
@@ -146,6 +165,9 @@ app.include_router(volunteers.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
 app.include_router(feedback.router, prefix="/api")
 app.include_router(certificates.router, prefix="/api")
+app.include_router(tech.router, prefix="/api")
+app.include_router(cultural.router, prefix="/api")
+app.include_router(academic.router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
@@ -165,3 +187,6 @@ async def health_check():
         "status": "healthy",
         "environment": settings.app_env,
     }
+
+# Wrap app with Socket.io at the very end
+app = socketio.ASGIApp(sio, app)

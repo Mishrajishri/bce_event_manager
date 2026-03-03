@@ -1,15 +1,17 @@
 """Authentication routes."""
 import logging
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from app.models import (
     AuthResponse,
     LoginRequest,
     UserCreate,
     UserResponse,
     MessageResponse,
+    UserRole,
 )
 from app.supabase import supabase, supabase_admin
 from app.auth import CurrentUser, get_current_user
+from app.limiter import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,8 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserCreate):
+@limiter.limit("5/minute")
+async def register(request: Request, user_data: UserCreate):
     """
     Register a new user.
 
@@ -40,8 +43,13 @@ async def register(user_data: UserCreate):
                     "data": {
                         "first_name": user_data.first_name,
                         "last_name": user_data.last_name,
-                        "role": user_data.role.value,
+                        "role": UserRole.ATTENDEE.value,
                         "phone": user_data.phone,
+                        "enrollment_number": user_data.enrollment_number,
+                        "branch": user_data.branch,
+                        "year": user_data.year,
+                        "college_name": user_data.college_name,
+                        "is_external": user_data.is_external,
                     }
                 },
             }
@@ -68,7 +76,12 @@ async def register(user_data: UserCreate):
                     first_name=user_data.first_name,
                     last_name=user_data.last_name,
                     phone=user_data.phone,
-                    role=user_data.role,
+                    enrollment_number=user_data.enrollment_number,
+                    branch=user_data.branch,
+                    year=user_data.year,
+                    college_name=user_data.college_name,
+                    is_external=user_data.is_external,
+                    role=UserRole.ATTENDEE,
                     is_verified=False,
                     created_at=auth_response.user.created_at,
                 )
@@ -84,7 +97,12 @@ async def register(user_data: UserCreate):
                 first_name=user_data.first_name,
                 last_name=user_data.last_name,
                 phone=user_data.phone,
-                role="super_admin" if user_data.role == "superadmin" else user_data.role,
+                enrollment_number=user_data.enrollment_number,
+                branch=user_data.branch,
+                year=user_data.year,
+                college_name=user_data.college_name,
+                is_external=user_data.is_external,
+                role=UserRole.ATTENDEE,
                 is_verified=True,
                 created_at=auth_response.user.created_at,
             )
@@ -99,7 +117,8 @@ async def register(user_data: UserCreate):
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(login_data: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: Request, login_data: LoginRequest):
     """
     Login with email and password.
 
@@ -139,6 +158,11 @@ async def login(login_data: LoginRequest):
                 first_name=user_metadata.get("first_name", ""),
                 last_name=user_metadata.get("last_name", ""),
                 phone=user_metadata.get("phone"),
+                enrollment_number=user_metadata.get("enrollment_number"),
+                branch=user_metadata.get("branch"),
+                year=user_metadata.get("year"),
+                college_name=user_metadata.get("college_name"),
+                is_external=user_metadata.get("is_external", False),
                 role="super_admin" if user_metadata.get("role") == "superadmin" else user_metadata.get("role", "attendee"),
                 is_verified=auth_response.user.email_confirmed_at is not None,
                 created_at=auth_response.user.created_at,
@@ -175,7 +199,8 @@ async def logout(current_user: CurrentUser = Depends(get_current_user)):
 
 
 @router.post("/refresh", response_model=AuthResponse)
-async def refresh_token(refresh_token: str):
+@limiter.limit("10/minute")
+async def refresh_token(request: Request, refresh_token: str):
     """
     Refresh access token using refresh token.
 
@@ -209,6 +234,11 @@ async def refresh_token(refresh_token: str):
                 first_name=user_metadata.get("first_name", ""),
                 last_name=user_metadata.get("last_name", ""),
                 phone=user_metadata.get("phone"),
+                enrollment_number=user_metadata.get("enrollment_number"),
+                branch=user_metadata.get("branch"),
+                year=user_metadata.get("year"),
+                college_name=user_metadata.get("college_name"),
+                is_external=user_metadata.get("is_external", False),
                 role="super_admin" if user_metadata.get("role") == "superadmin" else user_metadata.get("role", "attendee"),
                 is_verified=auth_response.user.email_confirmed_at is not None,
                 created_at=auth_response.user.created_at,
@@ -246,6 +276,11 @@ async def get_me(current_user: CurrentUser = Depends(get_current_user)):
             first_name=meta.get("first_name", ""),
             last_name=meta.get("last_name", ""),
             phone=meta.get("phone"),
+            enrollment_number=meta.get("enrollment_number"),
+            branch=meta.get("branch"),
+            year=meta.get("year"),
+            college_name=meta.get("college_name"),
+            is_external=meta.get("is_external", False),
             role="super_admin" if meta.get("role", current_user.role) == "superadmin" else meta.get("role", current_user.role),
             is_verified=user.email_confirmed_at is not None,
             created_at=user.created_at,

@@ -7,13 +7,18 @@ export interface User {
   first_name: string
   last_name: string
   phone?: string
+  enrollment_number?: string
+  branch?: string
+  year?: number
+  college_name?: string
+  is_external: boolean
   role: UserRole
   is_verified: boolean
   created_at: string
 }
 
 // Event Types
-export type EventType = 'sports' | 'tech_fest' | 'seminar' | 'other'
+export type EventType = 'sports' | 'tech_fest' | 'seminar' | 'hackathon' | 'coding_competition' | 'cultural' | 'workshop' | 'paper_presentation' | 'other'
 export type EventStatus = 'draft' | 'published' | 'ongoing' | 'completed' | 'cancelled'
 
 export interface Event {
@@ -21,6 +26,7 @@ export interface Event {
   name: string
   description: string
   event_type: EventType
+  category?: string
   organizer_id: string
   start_date: string
   end_date: string
@@ -39,11 +45,20 @@ export interface EventCreate {
   name: string
   description: string
   event_type: EventType
+  category?: string
   start_date: string
   end_date: string
   venue: string
   max_participants: number
   registration_deadline: string
+}
+
+export interface EventTypeConfig {
+  id: string
+  event_id: string
+  config_type: string
+  config_data: Record<string, any>
+  created_at: string
 }
 
 // Team Types
@@ -82,6 +97,17 @@ export interface Match {
   venue: string
   status: MatchStatus
   winner_id?: string
+  round?: number
+  created_at: string
+}
+
+export interface MatchCommentary {
+  id: string
+  match_id: string
+  content: string
+  type: 'general' | 'goal' | 'foul' | 'substitution' | 'period_start' | 'period_end'
+  team_id?: string
+  player_id?: string
   created_at: string
 }
 
@@ -225,6 +251,11 @@ export interface RegisterRequest {
   first_name: string
   last_name: string
   phone?: string
+  enrollment_number?: string
+  branch?: string
+  year?: number
+  college_name?: string
+  is_external?: boolean
   role?: UserRole
 }
 
@@ -236,4 +267,109 @@ export interface ApiErrorResponse {
 export interface MessageResponse {
   message: string
   success: boolean
+}
+
+// ============================================
+// Phase 2: Tech Events
+// ============================================
+
+export interface ProjectSubmission {
+  id: string
+  event_id: string
+  team_id: string
+  title: string
+  description?: string
+  github_url?: string
+  demo_video_url?: string
+  pitch_deck_url?: string
+  tech_stack?: string[]
+  submitted_at: string
+  status: 'submitted' | 'under_review' | 'qualified' | 'rejected'
+}
+
+export type ProjectSubmissionCreate = Omit<ProjectSubmission, 'id' | 'submitted_at' | 'status'>
+export type ProjectSubmissionUpdate = Partial<ProjectSubmissionCreate> & { status?: ProjectSubmission['status'] }
+
+export interface JudgingRubric {
+  id: string
+  event_id: string
+  criteria_name: string
+  description?: string
+  max_score: number
+  weight: number
+  display_order: number
+  created_at: string
+}
+
+export type JudgingRubricCreate = Omit<JudgingRubric, 'id' | 'created_at'>
+
+export interface SubmissionScore {
+  id: string
+  submission_id: string
+  judge_id: string
+  rubric_id: string
+  score: number
+  comments?: string
+  scored_at: string
+}
+
+export type SubmissionScoreCreate = Omit<SubmissionScore, 'id' | 'judge_id' | 'scored_at'>
+
+export interface LeaderboardEntry {
+  submission_id: string
+  title: string
+  team_id: string
+  score: number
+}
+
+// Team Requests
+export type TeamRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled'
+
+export interface TeamRequest {
+  id: string
+  team_id: string
+  user_id: string
+  message?: string
+  status: TeamRequestStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface TeamRequestCreate {
+  team_id: string
+  message?: string
+}
+
+// Mentorship
+export interface Mentor {
+  id: string
+  event_id: string
+  user_id: string
+  expertise_areas: string[]
+  bio?: string
+  is_available: boolean
+  created_at: string
+}
+
+export interface MentorshipSlot {
+  id: string
+  mentor_id: string
+  start_time: string
+  end_time: string
+  is_booked: boolean
+  meeting_link?: string
+}
+
+export interface MentorshipBooking {
+  id: string
+  slot_id: string
+  team_id: string
+  notes?: string
+  booked_at: string
+}
+
+export interface MentorshipBookingCreate {
+  slot_id: string
+  team_id: string
+  notes?: string
 }

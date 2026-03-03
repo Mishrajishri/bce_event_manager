@@ -2,12 +2,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 from app.models import (
+    EventType,
+    EventAnalytics,
+    EventTypeConfigCreate,
+    EventTypeConfigResponse,
+    EventTypeConfigResponse,
     EventCreate,
     EventUpdate,
     EventResponse,
     EventStatus,
-    EventType,
-    EventAnalytics,
 )
 from app.auth import CurrentUser, get_current_user_optional, require_organizer
 from app.supabase import supabase_admin
@@ -16,7 +19,7 @@ from datetime import datetime, timezone
 
 # Column sets for optimised queries (B2)
 EVENT_LIST_COLUMNS = (
-    "id, name, description, event_type, status, venue, "
+    "id, name, description, event_type, category, status, venue, "
     "start_date, end_date, max_participants, organizer_id, created_at"
 )
 EVENT_OWNER_COLUMNS = "id, organizer_id"
@@ -144,7 +147,21 @@ async def create_event(
             detail="Failed to create event",
         )
 
-    return EventResponse(**response.data[0])
+    event = response.data[0]
+    
+    # Handle category-specific config if provided
+    if event_data.config_data:
+        try:
+            supabase_admin.table("event_type_configs").insert({
+                "event_id": event["id"],
+                "config_type": event["event_type"],
+                "config_data": event_data.config_data
+            }).execute()
+        except Exception as e:
+            logger.error(f"Failed to create event config: {e}")
+            # We don't fail the whole request if config fails, but we log it
+
+    return EventResponse(**event)
 
 
 @router.get("/{event_id}", response_model=EventResponse)
@@ -318,3 +335,57 @@ async def get_event_analytics(
         registration_timeline=registration_timeline,
         demographics=demographics,
     )
+
+
+# ---------------------------------------------------------------------------
+# Event Type Configuration Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/{event_id}/config", response_model=Optional[EventTypeConfigResponse])
+async def get_event_config(event_id: str):
+    """Get configuration for a specific event."""
+    response = (
+        supabase_admin.table("event_type_configs")
+        .select("*")
+        .eq("event_id", event_id)
+        .execute()
+    )
+    if not response.data:
+        return None
+    return EventTypeConfigResponse(**response.data[0])
+
+
+@router.post("/{event_id}/config", response_model=EventTypeConfigResponse)
+async def create_event_config(
+    event_id: str,
+    config_data: EventTypeConfigCreate,
+    owned_event: dict = Depends(get_owned_event),
+):
+    """Create or update configuration for an event."""
+    data = config_data.model_dump()
+    data["event_id"] = event_id
+    
+    # Check if config exists
+    existing = supabase_admin.table("event_type_configs").select("id").eq("event_id", event_id).execute()
+    
+    if existing.data:
+        response = (
+            supabase_admin.table("event_type_configs")
+            .update(data)
+            .eq("event_id", event_id)
+            .execute()
+        )
+    else:
+        response = (
+            supabase_admin.table("event_type_configs")
+            .insert(data)
+            .execute()
+        )
+
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to save event configuration",
+        )
+
+    return EventTypeConfigResponse(**response.data[0])

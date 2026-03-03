@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Typography, Box, Chip, Button, Paper, Grid, Card, CardContent,
@@ -7,7 +7,7 @@ import {
 import { CalendarMonth, LocationOn, People, Timer } from '@mui/icons-material'
 import { useState } from 'react'
 import { eventsApi, teamsApi, registrationsApi } from '../services/api'
-import { useAuthStore } from '../store'
+import { useAuthStore, isOrganizer } from '../store'
 import { PageContainer } from '../components/layout_components'
 
 type ChipColor = "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning";
@@ -25,8 +25,10 @@ const statusColor = (s: string): ChipColor => {
 
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
+  const canManage = isOrganizer(user)
   const [teamName, setTeamName] = useState('')
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -119,6 +121,97 @@ export default function EventDetail() {
           </Box>
 
           <Chip label={event.event_type.replace('_', ' ')} sx={{ mb: 2, textTransform: 'capitalize' }} variant="outlined" />
+
+          <Box sx={{ float: 'right', display: 'flex', gap: 1 }}>
+            {event.event_type === 'hackathon' && isAuthenticated && teams?.some(t => t.captain_id === user?.id) && (
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => navigate(`/events/${event.id}/submit`)}
+              >
+                Submit Project
+              </Button>
+            )}
+
+            {isAuthenticated && (
+              <Button
+                variant="outlined"
+                onClick={() => navigate(`/events/${event.id}/teams`)}
+              >
+                Team Board
+              </Button>
+            )}
+
+            {event.event_type === 'hackathon' && isAuthenticated && (
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={() => navigate(`/events/${event.id}/mentorship`)}
+              >
+                Mentorship
+              </Button>
+            )}
+
+            {(user?.role === 'organizer' || user?.role === 'admin' || user?.role === 'super_admin') && (
+              <Button
+                variant="outlined"
+                color="info"
+                onClick={() => navigate(`/events/${event.id}/judging`)}
+              >
+                Judging
+              </Button>
+            )}
+
+            {event.event_type === 'sports' && (
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => navigate(`/events/${event.id}/matches`)}
+              >
+                Live Scores
+              </Button>
+            )}
+
+            {event.event_type === 'sports' && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={() => navigate(`/events/${event.id}/brackets`)}
+              >
+                Brackets
+              </Button>
+            )}
+
+            {event.event_type === 'cultural' && (
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => navigate(`/events/${event.id}/performances`)}
+              >
+                Performances
+              </Button>
+            )}
+
+            {event.event_type === 'paper_presentation' && (
+              <Button
+                variant="contained"
+                color="info"
+                onClick={() => navigate(`/events/${event.id}/academic/submit`)}
+              >
+                Submit Paper
+              </Button>
+            )}
+
+            {canManage && event.event_type === 'paper_presentation' && (
+              <Button
+                variant="outlined"
+                color="info"
+                onClick={() => navigate(`/events/${event.id}/academic/review`)}
+              >
+                Review Submissions
+              </Button>
+            )}
+          </Box>
 
           <Typography variant="body1" paragraph>{event.description}</Typography>
 

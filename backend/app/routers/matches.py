@@ -10,9 +10,13 @@ from app.models import (
     BracketGenerateRequest,
     BracketType,
     MatchStatus,
+    MatchCommentaryCreate,
+    MatchCommentaryResponse,
 )
 from app.auth import CurrentUser, require_organizer, get_current_user_optional
 from app.supabase import supabase_admin
+from app.socket_manager import broadcast_score_update, broadcast_commentary
+from app.utils.bracket_manager import BracketManager
 
 
 router = APIRouter(prefix="/events/{event_id}/matches", tags=["Matches"])
@@ -173,7 +177,12 @@ async def update_match(
             detail="Failed to update match"
         )
     
-    return MatchResponse(**response.data[0])
+    updated_match = response.data[0]
+    
+    # Broadcast real-time update
+    await broadcast_score_update(match_id, updated_match)
+    
+    return MatchResponse(**updated_match)
 
 
 @router.post("/brackets/generate", status_code=status.HTTP_201_CREATED)
@@ -229,62 +238,21 @@ async def generate_brackets(
     matches = []
     
     if bracket_request.bracket_type == BracketType.KNOCKOUT:
-        # Shuffle teams for random pairing
-        random.shuffle(teams)
-        
-        # Calculate number of rounds
-        num_teams = len(teams)
-        
-        # Create first round matches
-        team_index = 0
-        round_matches = []
-        
-        while team_index < num_teams - 1:
-            match = {
-                "event_id": event_id,
-                "team1_id": teams[team_index]["id"],
-                "team2_id": teams[team_index + 1]["id"],
-                "score_team1": 0,
-                "score_team2": 0,
-                "status": MatchStatus.SCHEDULED.value,
-                "venue": "",
-                "match_date": event["start_date"],
-            }
-            round_matches.append(match)
-            team_index += 2
-        
-        # Handle odd number of teams - one team gets a bye
-        if team_index < num_teams:
-            # Last team gets a bye to next round
-            pass
-        
-        # Insert matches
-        for match in round_matches:
-            response = supabase_admin.table("matches").insert(match).execute()
-            if response.data:
-                matches.append(response.data[0])
+        matches = BracketManager.generate_single_elimination(event_id, teams, event["start_date"])
     
     elif bracket_request.bracket_type == BracketType.ROUND_ROBIN:
-        # Round-robin: each team plays every other team
-        for i in range(len(teams)):
-            for j in range(i + 1, len(teams)):
-                match = {
-                    "event_id": event_id,
-                    "team1_id": teams[i]["id"],
-                    "team2_id": teams[j]["id"],
-                    "score_team1": 0,
-                    "score_team2": 0,
-                    "status": MatchStatus.SCHEDULED.value,
-                    "venue": "",
-                    "match_date": event["start_date"],
-                }
-                response = supabase_admin.table("matches").insert(match).execute()
-                if response.data:
-                    matches.append(response.data[0])
+        matches = BracketManager.generate_round_robin(event_id, teams, event["start_date"])
+    
+    # Insert matches
+    inserted_matches = []
+    for match in matches:
+        response = supabase_admin.table("matches").insert(match).execute()
+        if response.data:
+            inserted_matches.append(response.data[0])
     
     return {
-        "message": f"Successfully generated {len(matches)} matches",
-        "matches": matches,
+        "message": f"Successfully generated {len(inserted_matches)} matches",
+        "matches": inserted_matches,
         "bracket_type": bracket_request.bracket_type.value,
     }
 
@@ -344,3 +312,36 @@ async def get_bracket_visualization(
         "matches": brackets,
         "teams": [{"id": t["id"], "name": t["name"]} for t in teams.values()],
     }
+
+# ---------------------------------------------------------------------------
+# Match Commentary
+# ---------------------------------------------------------------------------
+
+@router.post("/{match_id}/commentary", response_model=MatchCommentaryResponse, status_code=status.HTTP_201_CREATED)
+async def add_commentary(
+    event_id: str,
+    match_id: str,
+    commentary_data: MatchCommentaryCreate,
+    current_user: CurrentUser = Depends(require_organizer),
+):
+    """Add a commentary entry to a match and broadcast it."""
+    data = commentary_data.model_dump()
+    data["match_id"] = match_id
+    
+    response = supabase_admin.table("match_commentary").insert(data).execute()
+    
+    if not response.data:
+        raise HTTPException(status_code=400, detail="Failed to add commentary")
+    
+    commentary = response.data[0]
+    
+    # Broadcast to listeners
+    await broadcast_commentary(match_id, commentary)
+    
+    return MatchCommentaryResponse(**commentary)
+
+@router.get("/{match_id}/commentary", response_model=List[MatchCommentaryResponse])
+async def list_commentary(event_id: str, match_id: str):
+    """List all commentary for a match."""
+    response = supabase_admin.table("match_commentary").select("*").eq("match_id", match_id).order("created_at", desc=True).execute()
+    return [MatchCommentaryResponse(**item) for item in response.data]

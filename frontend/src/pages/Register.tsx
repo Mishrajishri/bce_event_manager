@@ -9,7 +9,7 @@ import {
   IconButton,
   InputAdornment,
 } from '@mui/material'
-import { Visibility, VisibilityOff, Email, Lock, Person, Badge } from '@mui/icons-material'
+import { Visibility, VisibilityOff, Email, Lock, Person, Badge, School, Business, CalendarToday, AccountBalance } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -23,11 +23,19 @@ const registerSchema = z.object({
   last_name: z.string().min(1, 'Last name is required'),
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
   role: z.enum(['attendee', 'captain']),
+  enrollment_number: z.string().min(1, 'Enrollment number is required'),
+  branch: z.string().min(1, 'Branch is required'),
+  year: z.coerce.number().int().min(1, 'Year must be at least 1').max(5, 'Year must be at most 5'),
+  is_external: z.boolean(),
+  college_name: z.string(),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string().min(1, 'Please confirm your password'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
+}).refine((data) => !data.is_external || (data.is_external && data.college_name && data.college_name.length > 0), {
+  message: "College name is required for external students",
+  path: ["college_name"],
 })
 
 type RegisterForm = z.infer<typeof registerSchema>
@@ -43,6 +51,7 @@ export default function Register() {
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -51,10 +60,17 @@ export default function Register() {
       last_name: '',
       email: '',
       role: 'attendee',
+      enrollment_number: '',
+      branch: '',
+      year: 1,
+      is_external: false,
+      college_name: '',
       password: '',
       confirmPassword: '',
     },
   })
+
+  const isExternal = watch('is_external')
 
   const onSubmit = async (data: RegisterForm) => {
     setServerError('')
@@ -64,6 +80,11 @@ export default function Register() {
         first_name: data.first_name,
         last_name: data.last_name,
         role: data.role,
+        enrollment_number: data.enrollment_number,
+        branch: data.branch,
+        year: data.year,
+        college_name: data.college_name || 'BCE',
+        is_external: data.is_external,
       })
 
       if (signUpError) {
@@ -83,6 +104,11 @@ export default function Register() {
             first_name: meta.first_name || data.first_name,
             last_name: meta.last_name || data.last_name,
             role: meta.role || data.role,
+            enrollment_number: meta.enrollment_number || data.enrollment_number,
+            branch: meta.branch || data.branch,
+            year: meta.year || data.year,
+            college_name: meta.college_name || data.college_name,
+            is_external: meta.is_external || data.is_external,
             is_verified: !!authData.user?.email_confirmed_at,
             created_at: authData.user?.created_at || new Date().toISOString(),
           }
@@ -197,6 +223,110 @@ export default function Register() {
               <MenuItem value="attendee">🎯 Attendee</MenuItem>
               <MenuItem value="captain">🚩 Team Captain</MenuItem>
             </TextField>
+          )}
+        />
+
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Controller
+            name="enrollment_number"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                label="Enrollment Number"
+                margin="normal"
+                required
+                error={!!errors.enrollment_number}
+                helperText={errors.enrollment_number?.message}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><School /></InputAdornment>,
+                }}
+              />
+            )}
+          />
+
+          <Controller
+            name="year"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                label="Year"
+                type="number"
+                margin="normal"
+                required
+                error={!!errors.year}
+                helperText={errors.year?.message}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start"><CalendarToday /></InputAdornment>,
+                }}
+              />
+            )}
+          />
+        </Box>
+
+        <Controller
+          name="branch"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              fullWidth
+              label="Branch"
+              margin="normal"
+              required
+              error={!!errors.branch}
+              helperText={errors.branch?.message}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><Business /></InputAdornment>,
+              }}
+            />
+          )}
+        />
+
+        <Controller
+          name="is_external"
+          control={control}
+          render={({ field: { value, onChange, ...field } }) => (
+            <TextField
+              {...field}
+              select
+              fullWidth
+              label="Are you from this college?"
+              margin="normal"
+              value={value ? 'true' : 'false'}
+              onChange={(e) => onChange(e.target.value === 'true')}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><AccountBalance /></InputAdornment>,
+              }}
+            >
+              <MenuItem value="false">Yes, I am a BCE student</MenuItem>
+              <MenuItem value="true">No, I am from another college</MenuItem>
+            </TextField>
+          )}
+        />
+
+        <Controller
+          name="college_name"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              fullWidth
+              label="College Name"
+              margin="normal"
+              placeholder="Enter your college name"
+              required={isExternal}
+              disabled={!isExternal}
+              error={!!errors.college_name}
+              helperText={errors.college_name?.message}
+              sx={{ display: isExternal ? 'flex' : 'none' }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><AccountBalance /></InputAdornment>,
+              }}
+            />
           )}
         />
 
