@@ -58,7 +58,7 @@ async def get_owned_event(
 
     event = response.data[0]
 
-    if event["organizer_id"] != current_user.user_id and current_user.role != "super_admin":
+    if event["organizer_id"] != current_user.user_id and current_user.role not in ("super_admin", "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to manage this event",
@@ -100,7 +100,7 @@ async def list_events(
     query = supabase_admin.table("events").select(EVENT_LIST_COLUMNS)
 
     # Only show published/completed events to non-organizers
-    if current_user is None or current_user.role not in ("super_admin", "organizer"):
+    if current_user is None or current_user.role not in ("super_admin", "admin", "organizer"):
         query = query.in_("status", [EventStatus.PUBLISHED.value, EventStatus.COMPLETED.value])
     elif status:
         query = query.eq("status", status.value)
@@ -198,7 +198,7 @@ async def get_event(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Event not found",
             )
-        if current_user.role not in ["super_admin", "organizer"] and event["organizer_id"] != current_user.user_id:
+        if current_user.role not in ["super_admin", "admin", "organizer"] and event["organizer_id"] != current_user.user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Event not found",

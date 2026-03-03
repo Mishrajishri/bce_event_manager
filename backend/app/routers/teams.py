@@ -81,7 +81,7 @@ async def update_team(
     event_response = supabase_admin.table("events").select("organizer_id").eq("id", team["event_id"]).execute()
     is_event_organizer = event_response.data and event_response.data[0]["organizer_id"] == current_user.user_id
     
-    if not is_captain and not is_event_organizer and current_user.role != "super_admin":
+    if not is_captain and not is_event_organizer and current_user.role not in ("super_admin", "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to update this team"
@@ -139,7 +139,7 @@ async def add_team_member(
     event_response = supabase_admin.table("events").select("organizer_id").eq("id", team["event_id"]).execute()
     is_event_organizer = event_response.data and event_response.data[0]["organizer_id"] == current_user.user_id
     
-    if not is_captain and not is_event_organizer and current_user.role != "super_admin":
+    if not is_captain and not is_event_organizer and current_user.role not in ("super_admin", "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to add members to this team"
@@ -204,7 +204,7 @@ async def remove_team_member(
     event_response = supabase_admin.table("events").select("organizer_id").eq("id", team["event_id"]).execute()
     is_event_organizer = event_response.data and event_response.data[0]["organizer_id"] == current_user.user_id
     
-    if not is_captain and not is_self and not is_event_organizer and current_user.role != "super_admin":
+    if not is_captain and not is_self and not is_event_organizer and current_user.role not in ("super_admin", "admin"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to remove members from this team"

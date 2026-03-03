@@ -105,7 +105,7 @@ async def get_qr_code_image(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Registration not found")
 
     reg = reg_resp.data[0]
-    if reg["user_id"] != current_user.user_id and current_user.role not in ("super_admin", "organizer"):
+    if reg["user_id"] != current_user.user_id and current_user.role not in ("super_admin", "admin", "organizer"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     qr_string = reg.get("qr_code") or f"BCE-REG-{registration_id}"
@@ -125,7 +125,7 @@ async def check_in(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Scan a QR code to check in a participant. Organizer/Super Admin only."""
-    if current_user.role not in ("super_admin", "organizer"):
+    if current_user.role not in ("super_admin", "admin", "organizer"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only organizers can check in participants")
 
     reg_resp = (
@@ -179,7 +179,7 @@ async def list_event_registrations(
 
     event = event_response.data[0]
 
-    if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "admin", "organizer") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to view registrations for this event")
 
     query = supabase_admin.table("registrations").select("*").eq("event_id", event_id)
@@ -204,7 +204,7 @@ async def export_registrations_csv(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     event = event_response.data[0]
-    if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "admin", "organizer") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     regs = supabase_admin.table("registrations").select("*").eq("event_id", event_id).execute()
@@ -258,7 +258,7 @@ async def update_registration_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
     event = event_response.data[0]
-    if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "admin", "organizer") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to update registrations for this event")
 
     update_data = {k: v for k, v in reg_data.model_dump().items() if v is not None}
@@ -288,7 +288,7 @@ async def delete_registration(
         if not event_response.data:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
         event = event_response.data[0]
-        if current_user.role not in ("super_admin", "organizer") and event["organizer_id"] != current_user.user_id:
+        if current_user.role not in ("super_admin", "admin", "organizer") and event["organizer_id"] != current_user.user_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to delete this registration")
 
     supabase_admin.table("registrations").delete().eq("id", registration_id).execute()

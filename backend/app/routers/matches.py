@@ -85,7 +85,7 @@ async def create_match(
     
     event = event_response.data[0]
     
-    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "admin") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to create matches for this event"
@@ -153,7 +153,7 @@ async def update_match(
     
     event = event_response.data[0]
     
-    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "admin") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to update matches for this event"
@@ -216,7 +216,7 @@ async def generate_brackets(
     
     event = event_response.data[0]
     
-    if current_user.role != "super_admin" and event["organizer_id"] != current_user.user_id:
+    if current_user.role not in ("super_admin", "admin") and event["organizer_id"] != current_user.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to generate brackets for this event"

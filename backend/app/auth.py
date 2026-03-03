@@ -107,8 +107,8 @@ def require_role(allowed_roles: list[str]):
 
 
 # Pre-defined role checkers
-require_super_admin = require_role(["super_admin"])
-require_organizer = require_role(["super_admin", "organizer"])
+require_super_admin = require_role(["super_admin", "admin"])
+require_organizer = require_role(["super_admin", "admin", "organizer"])
 require_admin = require_organizer  # Alias — same permissions as organizer
-require_captain = require_role(["super_admin", "organizer", "captain"])
-require_any_user = require_role(["super_admin", "organizer", "captain", "attendee"])
+require_captain = require_role(["super_admin", "admin", "organizer", "captain"])
+require_any_user = require_role(["super_admin", "admin", "organizer", "captain", "attendee"])

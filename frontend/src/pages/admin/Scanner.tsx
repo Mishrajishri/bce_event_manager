@@ -17,8 +17,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { BrowserQRCodeReader, IScannerControls } from '@zxing/browser';
 import { adminApi, registrationsApi } from '../../services/api';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { useAuthStore } from '../../store';
+import { useAuthStore, isOrganizer } from '../../store';
 import { Navigate } from 'react-router-dom';
+
+import './Scanner.css';
 
 export default function Scanner() {
     const { user } = useAuthStore();
@@ -30,8 +32,8 @@ export default function Scanner() {
     const controlsRef = useRef<IScannerControls | null>(null); // To store decoding controls
     const hasScannedRef = useRef<boolean>(false); // Prevent multiple scan fires
 
-    // Restrict access
-    if (user?.role !== 'super_admin' && user?.role !== 'organizer') {
+    // Restrict access - use isOrganizer helper which includes admin role
+    if (!isOrganizer(user)) {
         return <Navigate to="/dashboard" replace />;
     }
 
@@ -181,12 +183,7 @@ export default function Scanner() {
                 >
                     <video
                         ref={videoRef}
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: isScanning ? 'block' : 'none'
-                        }}
+                        className={`scanner-video ${!isScanning ? 'hidden' : ''}`}
                     />
 
                     {!isScanning && (
