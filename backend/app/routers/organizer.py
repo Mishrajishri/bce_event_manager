@@ -55,37 +55,37 @@ def get_event_registrations(event_id: str) -> List[dict]:
 
 
 def get_registration_trends(event_ids: List[str], days: int = 30) -> List[RegistrationTrend]:
-    """Get registration trends for the last N days."""
-    trends = []
+    """Get registration trends for the last N days - optimized single query."""
     today = datetime.now(timezone.utc).date()
+    start_date = today - timedelta(days=days - 1)
     
+    # Single query for all events and date range - avoids N+1 problem
+    regs = (
+        supabase_admin.table("registrations")
+        .select("registered_at, checked_in_at")
+        .in_("event_id", event_ids)
+        .gte("registered_at", f"{start_date}T00:00:00")
+        .execute()
+    )
+    
+    # Initialize trends with all dates
+    trends_map: dict[str, dict[str, int]] = {}
     for i in range(days - 1, -1, -1):
         date = today - timedelta(days=i)
-        date_str = str(date)
-        
-        # Count registrations for this date across all organizer events
-        count = 0
-        checkins = 0
-        
-        for event_id in event_ids:
-            regs = (
-                supabase_admin.table("registrations")
-                .select("id, checked_in_at")
-                .eq("event_id", event_id)
-                .gte("registered_at", f"{date_str}T00:00:00")
-                .lte("registered_at", f"{date_str}T23:59:59")
-                .execute()
-            )
-            count += len(regs.data)
-            checkins += len([r for r in regs.data if r.get("checked_in_at")])
-        
-        trends.append(RegistrationTrend(
-            date=date_str,
-            registrations=count,
-            checkins=checkins
-        ))
+        trends_map[str(date)] = {"registrations": 0, "checkins": 0}
     
-    return trends
+    # Group registrations by date
+    for r in regs.data:
+        reg_date = r["registered_at"][:10]  # Extract YYYY-MM-DD
+        if reg_date in trends_map:
+            trends_map[reg_date]["registrations"] += 1
+            if r.get("checked_in_at"):
+                trends_map[reg_date]["checkins"] += 1
+    
+    return [
+        RegistrationTrend(date=d, registrations=v["registrations"], checkins=v["checkins"])
+        for d, v in sorted(trends_map.items())
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +166,14 @@ async def get_organizer_analytics(
     confirmed_registrations = len([r for r in all_registrations if r.get("status") == "confirmed"])
     checkin_rate = calculate_checkin_rate(all_registrations)
     collection_rate = round((paid_count / total_registrations * 100), 2) if total_registrations > 0 else 0.0
-    budget_utilization = round((total_expenses / total_revenue * 100), 2) if total_revenue > 0 else 0.0
+    
+    # Budget utilization: handle edge cases where revenue is 0 but expenses exist
+    if total_revenue > 0:
+        budget_utilization = round((total_expenses / total_revenue * 100), 2)
+    elif total_expenses > 0:
+        budget_utilization = 100.0  # Expenses with no revenue = 100% over budget
+    else:
+        budget_utilization = 0.0  # No revenue, no expenses
     
     # Registration trends (last 30 days)
     registration_trends = get_registration_trends(event_ids, days=30)
@@ -226,7 +233,9 @@ async def get_organizer_analytics(
             .data
         )
         
-        capacity = event.get("max_participants", 0) or event.get("team_size_max", 100)
+        # Calculate capacity - use max_participants if set, otherwise use a reasonable default
+        # Don't use team_size_max as that's per-team, not total event capacity
+        capacity = event.get("max_participants") or 100  # Default to 100 if unlimited
         fill_rate = round((len(event_regs) / capacity * 100), 2) if capacity > 0 else 0.0
         
         events_performance.append(EventPerformance(
