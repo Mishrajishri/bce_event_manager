@@ -16,6 +16,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const MyRegistrations = lazy(() => import('./pages/MyRegistrations'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const Scanner = lazy(() => import('./pages/admin/Scanner'))
+const OrganizerAnalytics = lazy(() => import('./pages/organizer/Analytics'))
 const SubmitProject = lazy(() => import('./pages/SubmitProject'))
 const TeamBoard = lazy(() => import('./pages/TeamBoard'))
 const JudgingDashboard = lazy(() => import('./pages/JudgingDashboard'))
@@ -116,6 +117,9 @@ function App() {
             {/* Organizer routes */}
             <Route path="dashboard" element={
               <OrganizerRoute><Dashboard /></OrganizerRoute>
+            } />
+            <Route path="organizer/analytics" element={
+              <OrganizerRoute><OrganizerAnalytics /></OrganizerRoute>
             } />
             <Route path="events/create" element={
               <OrganizerRoute><CreateEvent /></OrganizerRoute>

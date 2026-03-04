@@ -32,6 +32,7 @@ from app.routers import (
     tech,
     cultural,
     academic,
+    organizer,
 )
 
 # Configure structured JSON logging
@@ -169,6 +170,7 @@ app.include_router(certificates.router, prefix="/api")
 app.include_router(tech.router, prefix="/api")
 app.include_router(cultural.router, prefix="/api")
 app.include_router(academic.router, prefix="/api")
+app.include_router(organizer.router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])

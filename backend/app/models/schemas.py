@@ -567,6 +567,87 @@ class EventAnalytics(BaseModel):
     demographics: List[dict]
 
 
+# Organizer Analytics Models
+class OrganizerOverviewStats(BaseModel):
+    """Overview statistics for organizer dashboard."""
+    total_events: int
+    active_events: int
+    draft_events: int
+    total_registrations: int
+    confirmed_registrations: int
+    checkin_rate: float
+    total_revenue: float
+    collection_rate: float
+    total_expenses: float
+    budget_utilization: float
+
+
+class RegistrationTrend(BaseModel):
+    """Daily registration trend data."""
+    date: str
+    registrations: int
+    checkins: int
+
+
+class RevenueByEvent(BaseModel):
+    """Revenue breakdown by event."""
+    event_id: str
+    event_name: str
+    revenue: float
+    target: float
+
+
+class PaymentBreakdown(BaseModel):
+    """Payment status breakdown."""
+    status: str
+    count: int
+    amount: float
+
+
+class AttendanceFunnel(BaseModel):
+    """Attendance funnel stages."""
+    stage: str
+    count: int
+
+
+class EventPerformance(BaseModel):
+    """Performance metrics for a single event."""
+    event_id: str
+    name: str
+    type: str
+    status: str
+    start_date: datetime
+    registrations: int
+    capacity: int
+    fill_rate: float
+    revenue: float
+    expenses: float
+    profit: float
+    checkin_rate: float
+    trend: str
+
+
+class RecentActivity(BaseModel):
+    """Recent activity item."""
+    id: str
+    type: str
+    description: str
+    timestamp: datetime
+    user_name: Optional[str] = None
+    event_name: Optional[str] = None
+
+
+class OrganizerAnalytics(BaseModel):
+    """Complete organizer analytics response."""
+    overview: OrganizerOverviewStats
+    registration_trends: List[RegistrationTrend]
+    revenue_by_event: List[RevenueByEvent]
+    payment_breakdown: List[PaymentBreakdown]
+    attendance_funnel: List[AttendanceFunnel]
+    events: List[EventPerformance]
+    recent_activity: List[RecentActivity]
+
+
 # Auth Models
 class AuthResponse(BaseModel):
     access_token: str

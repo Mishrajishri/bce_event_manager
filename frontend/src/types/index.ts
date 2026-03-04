@@ -232,6 +232,79 @@ export interface EventAnalytics {
   demographics: { category: string; count: number }[]
 }
 
+// Organizer Analytics Types
+export interface OrganizerOverviewStats {
+  total_events: number
+  active_events: number
+  draft_events: number
+  total_registrations: number
+  confirmed_registrations: number
+  checkin_rate: number
+  total_revenue: number
+  collection_rate: number
+  total_expenses: number
+  budget_utilization: number
+}
+
+export interface RegistrationTrend {
+  date: string
+  registrations: number
+  checkins: number
+}
+
+export interface RevenueByEvent {
+  event_id: string
+  event_name: string
+  revenue: number
+  target: number
+}
+
+export interface PaymentBreakdown {
+  status: string
+  count: number
+  amount: number
+}
+
+export interface AttendanceFunnel {
+  stage: string
+  count: number
+}
+
+export interface EventPerformance {
+  event_id: string
+  name: string
+  type: string
+  status: string
+  start_date: string
+  registrations: number
+  capacity: number
+  fill_rate: number
+  revenue: number
+  expenses: number
+  profit: number
+  checkin_rate: number
+  trend: string
+}
+
+export interface RecentActivity {
+  id: string
+  type: string
+  description: string
+  timestamp: string
+  user_name?: string
+  event_name?: string
+}
+
+export interface OrganizerAnalytics {
+  overview: OrganizerOverviewStats
+  registration_trends: RegistrationTrend[]
+  revenue_by_event: RevenueByEvent[]
+  payment_breakdown: PaymentBreakdown[]
+  attendance_funnel: AttendanceFunnel[]
+  events: EventPerformance[]
+  recent_activity: RecentActivity[]
+}
+
 // Auth Types
 export interface AuthResponse {
   access_token: string

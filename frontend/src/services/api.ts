@@ -33,6 +33,7 @@ import type {
   MentorshipSlot,
   MentorshipBooking,
   MentorshipBookingCreate,
+  OrganizerAnalytics,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
@@ -559,5 +560,14 @@ export const techApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }) as Promise<MentorshipBooking>,
+}
+
+// Organizer API (Organizers and above)
+export const organizerApi = {
+  getAnalytics: () =>
+    fetchWithAuth(`${API_BASE_URL}/organizer/analytics`) as Promise<OrganizerAnalytics>,
+
+  listEvents: () =>
+    fetchWithAuth(`${API_BASE_URL}/organizer/events`) as Promise<Event[]>,
 }
 
