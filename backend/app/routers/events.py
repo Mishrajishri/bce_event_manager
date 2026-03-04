@@ -1,4 +1,5 @@
 """Events API routes."""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 from app.models import (
@@ -16,6 +17,8 @@ from app.auth import CurrentUser, get_current_user_optional, require_organizer
 from app.supabase import supabase_admin
 
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 # Column sets for optimised queries (B2)
 EVENT_LIST_COLUMNS = (
@@ -79,6 +82,10 @@ async def list_events(
     status: Optional[EventStatus] = None,
     event_type: Optional[EventType] = None,
     search: Optional[str] = None,
+    category: Optional[str] = None,
+    upcoming: bool = False,
+    ongoing: bool = False,
+    has_open_registrations: bool = False,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     current_user: Optional[CurrentUser] = Depends(get_current_user_optional),

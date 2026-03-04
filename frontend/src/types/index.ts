@@ -34,9 +34,12 @@ export interface Event {
   max_participants: number
   current_participants?: number
   registration_fee?: number
+  currency?: string
   registration_deadline: string
+  submission_deadline?: string
   status: EventStatus
   cover_image?: string
+  registrations_open?: boolean
   created_at: string
   updated_at?: string
 }
@@ -445,4 +448,184 @@ export interface MentorshipBookingCreate {
   slot_id: string
   team_id: string
   notes?: string
+}
+
+// ============================================
+// Phase 3: Communication & Notifications
+// ============================================
+
+export interface Notification {
+  id: string
+  user_id: string
+  type: 'registration' | 'team' | 'announcement' | 'judging' | 'reminder' | 'system'
+  title: string
+  message: string
+  link?: string
+  is_read: boolean
+  created_at: string
+}
+
+export interface NotificationPreferences {
+  id: string
+  user_id: string
+  email_enabled: boolean
+  push_enabled: boolean
+  event_reminders: boolean
+  team_updates: boolean
+  new_announcements: boolean
+  judging_updates: boolean
+}
+
+export interface TeamMessage {
+  id: string
+  team_id: string
+  user_id?: string
+  message: string
+  attachments?: string[]
+  is_announcement: boolean
+  created_at: string
+  updated_at?: string
+}
+
+export interface TeamMessageCreate {
+  team_id: string
+  message: string
+  attachments?: string[]
+  is_announcement?: boolean
+}
+
+// ============================================
+// Phase 3: Team Skills & Matching
+// ============================================
+
+export interface UserSkill {
+  id: string
+  user_id: string
+  skill_name: string
+  proficiency_level: number
+  created_at: string
+}
+
+export interface TeamSkill {
+  id: string
+  team_id: string
+  skill_name: string
+  proficiency_level: number
+  created_at: string
+}
+
+export interface TeamRequirement {
+  id: string
+  team_id: string
+  skill_name: string
+  priority: number
+  is_required: boolean
+  created_at: string
+}
+
+export interface TeamInvite {
+  id: string
+  team_id: string
+  user_id: string
+  status: 'pending' | 'accepted' | 'declined'
+  created_at: string
+  updated_at: string
+}
+
+export interface TeamRecommendation {
+  user_id: string
+  matching_skills: { skill_name: string; proficiency_level: number }[]
+  score: number
+}
+
+// ============================================
+// Phase 3: Analytics
+// ============================================
+
+export interface UserActivityLog {
+  id: string
+  user_id: string
+  action: string
+  resource_type: string
+  resource_id?: string
+  metadata?: Record<string, unknown>
+  ip_address?: string
+  user_agent?: string
+  created_at: string
+}
+
+export interface EventMetrics {
+  id: string
+  event_id: string
+  date: string
+  unique_visitors: number
+  page_views: number
+  registrations: number
+  submissions: number
+  active_participants: number
+  engagement_score?: number
+}
+
+export interface DashboardSummary {
+  total_events: number
+  total_users: number
+  recent_registrations: number
+  active_events: number
+  period_days: number
+}
+
+export interface RegistrationTrend {
+  date: string
+  registrations: number
+}
+
+// ============================================
+// Phase 3: Project Submission
+// ============================================
+
+export interface SubmissionVersion {
+  id: string
+  submission_id: string
+  version_number: number
+  github_url?: string
+  demo_video_url?: string
+  pitch_deck_url?: string
+  submitted_at: string
+}
+
+export interface WaitlistEntry {
+  id: string
+  event_id: string
+  user_id: string
+  position: number
+  created_at: string
+}
+
+export interface WaitlistInfo {
+  is_on_waitlist: boolean
+  is_registered?: boolean
+  position?: number
+  spots_available?: number
+  estimated_wait_hours?: number
+  registered_at?: string
+  message?: string
+}
+
+export interface RegistrationStats {
+  event_id: string
+  event_name: string
+  max_participants: number
+  registration_deadline?: string
+  status_breakdown: {
+    confirmed: number
+    pending: number
+    cancelled: number
+  }
+  waitlist: number
+  payment_breakdown: {
+    paid: number
+    unpaid: number
+    total_revenue: number
+  }
+  checked_in: number
 }

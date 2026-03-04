@@ -33,6 +33,15 @@ from app.routers import (
     cultural,
     academic,
     organizer,
+    waitlist,
+    event_configs,
+    skills,
+    notifications,
+    team_messages,
+    analytics_enhanced,
+    events_enhanced,
+    teams_enhanced,
+    registrations_enhanced,
 )
 
 # Configure structured JSON logging
@@ -171,6 +180,15 @@ app.include_router(tech.router, prefix="/api")
 app.include_router(cultural.router, prefix="/api")
 app.include_router(academic.router, prefix="/api")
 app.include_router(organizer.router, prefix="/api")
+app.include_router(waitlist.router, prefix="/api")
+app.include_router(event_configs.router, prefix="/api")
+app.include_router(skills.router, prefix="/api")
+app.include_router(notifications.router, prefix="/api")
+app.include_router(team_messages.router, prefix="/api")
+app.include_router(analytics_enhanced.router, prefix="/api")
+app.include_router(events_enhanced.router, prefix="/api")
+app.include_router(teams_enhanced.router, prefix="/api")
+app.include_router(registrations_enhanced.router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])

@@ -85,7 +85,7 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
-async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<any> {
+export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<any> {
   const { accessToken, refreshToken, setAuth, clearAuth } = useAuthStore.getState()
 
   const headers: HeadersInit = {
@@ -569,5 +569,167 @@ export const organizerApi = {
 
   listEvents: () =>
     fetchWithAuth(`${API_BASE_URL}/organizer/events`) as Promise<Event[]>,
+}
+
+// Event Type Configs API
+export const eventConfigsApi = {
+  list: (eventType?: string) => {
+    const query = eventType ? `?event_type=${eventType}` : ''
+    return fetchWithAuth(`${API_BASE_URL}/event-configs${query}`) as Promise<any[]>
+  },
+
+  get: (id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/event-configs/${id}`) as Promise<any>,
+
+  create: (data: { name: string; event_type: string; config: Record<string, any> }) =>
+    fetchWithAuth(`${API_BASE_URL}/event-configs`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  update: (id: string, data: { name?: string; config?: Record<string, any> }) =>
+    fetchWithAuth(`${API_BASE_URL}/event-configs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  delete: (id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/event-configs/${id}`, { method: 'DELETE' }),
+}
+
+// Skills API - Team matching & user skills
+export const skillsApi = {
+  // User skills
+  getMySkills: () =>
+    fetchWithAuth(`${API_BASE_URL}/skills/my`) as Promise<any[]>,
+
+  updateMySkills: (skills: { skill_name: string; proficiency_level: number }[]) =>
+    fetchWithAuth(`${API_BASE_URL}/skills/my`, {
+      method: 'PUT',
+      body: JSON.stringify(skills),
+    }) as Promise<any[]>,
+
+  // Team skills & requirements
+  getTeamRequirements: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/skills/teams/${teamId}/requirements`) as Promise<any[]>,
+
+  addTeamRequirement: (teamId: string, data: { skill_name: string; priority: number; description?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/skills/teams/${teamId}/requirements`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  removeTeamRequirement: (teamId: string, requirementId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/skills/teams/${teamId}/requirements/${requirementId}`, {
+      method: 'DELETE',
+    }),
+
+  // Team invites
+  getTeamInvites: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/skills/teams/${teamId}/invites`) as Promise<any[]>,
+
+  inviteToTeam: (teamId: string, data: { user_email: string; message?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/skills/teams/${teamId}/invites`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  respondToInvite: (inviteId: string, action: 'accept' | 'decline') =>
+    fetchWithAuth(`${API_BASE_URL}/skills/invites/${inviteId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ action }),
+    }) as Promise<any>,
+
+  getMyInvites: () =>
+    fetchWithAuth(`${API_BASE_URL}/skills/invites/my`) as Promise<any[]>,
+
+  // Skill matching
+  findTeammates: (eventId: string, requiredSkills?: string[]) => {
+    const query = requiredSkills?.length ? `?skills=${requiredSkills.join(',')}` : ''
+    return fetchWithAuth(`${API_BASE_URL}/skills/match/${eventId}${query}`) as Promise<any[]>
+  },
+
+  // Available skills list
+  listAvailableSkills: () =>
+    fetchWithAuth(`${API_BASE_URL}/skills/available`) as Promise<any[]>,
+}
+
+// Notifications API
+export const notificationsApi = {
+  list: (params?: { unread_only?: boolean; limit?: number }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return fetchWithAuth(`${API_BASE_URL}/notifications${query ? `?${query}` : ''}`) as Promise<any[]>
+  },
+
+  getUnreadCount: () =>
+    fetchWithAuth(`${API_BASE_URL}/notifications/unread-count`) as Promise<{ count: number }>,
+
+  markAsRead: (id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/notifications/${id}/read`, { method: 'PUT' }),
+
+  markAllAsRead: () =>
+    fetchWithAuth(`${API_BASE_URL}/notifications/read-all`, { method: 'PUT' }),
+
+  delete: (id: string) =>
+    fetchWithAuth(`${API_BASE_URL}/notifications/${id}`, { method: 'DELETE' }),
+
+  // Preferences
+  getPreferences: () =>
+    fetchWithAuth(`${API_BASE_URL}/notifications/preferences`) as Promise<any>,
+
+  updatePreferences: (data: { email_enabled?: boolean; push_enabled?: boolean; types?: string[] }) =>
+    fetchWithAuth(`${API_BASE_URL}/notifications/preferences`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+}
+
+// Team Messages API
+export const teamMessagesApi = {
+  listChannels: () =>
+    fetchWithAuth(`${API_BASE_URL}/team-messages/channels`) as Promise<any[]>,
+
+  getChannel: (channelId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/team-messages/channels/${channelId}`) as Promise<any>,
+
+  getMessages: (channelId: string, params?: { before?: string; limit?: number }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return fetchWithAuth(`${API_BASE_URL}/team-messages/channels/${channelId}/messages${query ? `?${query}` : ''}`) as Promise<any[]>
+  },
+
+  sendMessage: (channelId: string, data: { content: string; message_type?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/team-messages/channels/${channelId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  deleteMessage: (channelId: string, messageId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/team-messages/channels/${channelId}/messages/${messageId}`, {
+      method: 'DELETE',
+    }),
+
+  getOrCreateChannel: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/team-messages/channels/team/${teamId}`, {
+      method: 'POST',
+    }) as Promise<any>,
+}
+
+// Enhanced Analytics API
+export const analyticsEnhancedApi = {
+  getUserActivity: (params?: { days?: number; event_id?: string }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return fetchWithAuth(`${API_BASE_URL}/analytics/activity${query ? `?${query}` : ''}`) as Promise<any[]>
+  },
+
+  getEventMetrics: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/analytics/events/${eventId}/metrics`) as Promise<any>,
+
+  getRegistrationTrends: (params?: { days?: number; event_id?: string }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return fetchWithAuth(`${API_BASE_URL}/analytics/trends${query ? `?${query}` : ''}`) as Promise<any[]>
+  },
+
+  getPlatformStats: () =>
+    fetchWithAuth(`${API_BASE_URL}/analytics/platform`) as Promise<any>,
 }
 

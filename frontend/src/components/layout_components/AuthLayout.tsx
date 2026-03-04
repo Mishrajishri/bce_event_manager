@@ -25,7 +25,7 @@ export function AuthLayout({
 
     return (
         <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <PageContainer maxWidth="sm" spacing="relaxed">
+            <PageContainer maxWidth="sm" spacing={3}>
                 <Paper
                     sx={{
                         p: { xs: 4, md: 6 },

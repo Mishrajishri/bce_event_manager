@@ -200,7 +200,8 @@ function RevenueByEventChart({ data }: { data: OrganizerAnalytics['revenue_by_ev
 // Payment Breakdown Chart
 // ---------------------------------------------------------------------------
 function PaymentBreakdownChart({ data }: { data: OrganizerAnalytics['payment_breakdown'] }) {
-    const total = data.reduce((sum, item) => sum + item.count, 0)
+    // Note: total unused but kept for potential future use in displaying sum
+    // const total = data.reduce((sum, item) => sum + item.count, 0)
 
     return (
         <Paper sx={{ p: 3, height: 350 }}>
@@ -220,11 +221,11 @@ function PaymentBreakdownChart({ data }: { data: OrganizerAnalytics['payment_bre
                         dataKey="count"
                         nameKey="status"
                     >
-                        {data.map((entry, index) => (
+                        {data.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                     </Pie>
-                    <Tooltip formatter={(value: number, name: string, props: any) => {
+                    <Tooltip formatter={(value: number, _name: string, props: any) => {
                         const item = data[props.payload.index]
                         return [`${value} (${item.amount ? `₹${item.amount.toLocaleString()}` : '₹0'})`, item.status]
                     }} />
@@ -426,7 +427,7 @@ function RecentActivityFeed({ data }: { data: RecentActivity[] }) {
 // ---------------------------------------------------------------------------
 export default function OrganizerAnalyticsPage() {
     const { user } = useAuthStore()
-    const [timeRange, setTimeRange] = useState('30d')
+    const [timeRange] = useState('30d')
 
     // Redirect if not an organizer
     if (!isOrganizer(user)) {

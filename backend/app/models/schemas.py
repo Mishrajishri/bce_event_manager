@@ -149,6 +149,9 @@ class EventBase(BaseModel):
     venue: str = Field(..., min_length=1, max_length=255)
     max_participants: int = Field(..., gt=0)
     registration_deadline: datetime
+    registration_fee: float = Field(0.00, ge=0)
+    currency: str = Field('INR', max_length=3)
+    submission_deadline: Optional[datetime] = None
 
 
 class EventCreate(EventBase):
@@ -165,7 +168,10 @@ class EventUpdate(BaseModel):
     venue: Optional[str] = Field(None, min_length=1, max_length=255)
     max_participants: Optional[int] = Field(None, gt=0)
     registration_deadline: Optional[datetime] = None
+    registration_fee: Optional[float] = Field(None, ge=0)
+    currency: Optional[str] = Field(None, max_length=3)
     status: Optional[EventStatus] = None
+    submission_deadline: Optional[datetime] = None
 
 
 class EventResponse(EventBase):
@@ -173,6 +179,9 @@ class EventResponse(EventBase):
     organizer_id: str
     status: EventStatus
     cover_image: Optional[str] = None
+    registration_fee: float
+    currency: str
+    submission_deadline: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -893,6 +902,312 @@ class PaperReviewResponse(PaperReviewCreate):
     submission_id: str
     reviewer_id: str
     reviewed_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Phase 1: Hackathon Team Skills Models
+# ============================================
+
+class ProficiencyLevel(str, Enum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+    EXPERT = "expert"
+
+
+class TeamSkillBase(BaseModel):
+    skill_name: str = Field(..., min_length=1, max_length=100)
+    skill_category: Optional[str] = Field(None, max_length=50)
+    proficiency_level: ProficiencyLevel = ProficiencyLevel.INTERMEDIATE
+
+
+class TeamSkillCreate(TeamSkillBase):
+    team_id: str
+
+
+class TeamSkillUpdate(BaseModel):
+    skill_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    skill_category: Optional[str] = Field(None, max_length=50)
+    proficiency_level: Optional[ProficiencyLevel] = None
+
+
+class TeamSkillResponse(TeamSkillBase):
+    id: str
+    team_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TeamRequirementBase(BaseModel):
+    skill_name: str = Field(..., min_length=1, max_length=100)
+    skill_category: Optional[str] = Field(None, max_length=50)
+    required_count: int = Field(1, ge=1)
+    priority: Priority = Priority.MEDIUM
+
+
+class TeamRequirementCreate(TeamRequirementBase):
+    team_id: str
+
+
+class TeamRequirementUpdate(BaseModel):
+    skill_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    skill_category: Optional[str] = Field(None, max_length=50)
+    required_count: Optional[int] = Field(None, ge=1)
+    priority: Optional[Priority] = None
+    is_filled: Optional[bool] = None
+
+
+class TeamRequirementResponse(TeamRequirementBase):
+    id: str
+    team_id: str
+    is_filled: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserSkillBase(BaseModel):
+    skill_name: str = Field(..., min_length=1, max_length=100)
+    skill_category: Optional[str] = Field(None, max_length=50)
+    proficiency_level: ProficiencyLevel = ProficiencyLevel.INTERMEDIATE
+    years_experience: Optional[int] = Field(None, ge=0)
+
+
+class UserSkillCreate(UserSkillBase):
+    pass
+
+
+class UserSkillUpdate(BaseModel):
+    skill_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    skill_category: Optional[str] = Field(None, max_length=50)
+    proficiency_level: Optional[ProficiencyLevel] = None
+    years_experience: Optional[int] = Field(None, ge=0)
+
+
+class UserSkillResponse(UserSkillBase):
+    id: str
+    user_id: str
+    is_verified: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class InviteStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    EXPIRED = "expired"
+
+
+class TeamInviteBase(BaseModel):
+    invitee_email: Optional[EmailStr] = None
+    role: str = Field("member", max_length=50)
+    message: Optional[str] = None
+
+
+class TeamInviteCreate(TeamInviteBase):
+    team_id: str
+    inviter_id: str
+
+
+class TeamInviteUpdate(BaseModel):
+    status: Optional[InviteStatus] = None
+
+
+class TeamInviteResponse(TeamInviteBase):
+    id: str
+    team_id: str
+    inviter_id: str
+    invitee_id: Optional[str] = None
+    status: str
+    expires_at: Optional[datetime] = None
+    created_at: datetime
+    responded_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Notification Models
+# ============================================
+
+class NotificationType(str, Enum):
+    REGISTRATION = "registration"
+    TEAM_UPDATE = "team_update"
+    ANNOUNCEMENT = "announcement"
+    JUDGING = "judging"
+    SUBMISSION = "submission"
+    INVITE = "invite"
+    REMINDER = "reminder"
+    SYSTEM = "system"
+
+
+class NotificationBase(BaseModel):
+    type: NotificationType
+    title: str = Field(..., min_length=1, max_length=255)
+    message: str
+    link: Optional[str] = Field(None, max_length=500)
+
+
+class NotificationCreate(NotificationBase):
+    user_id: str
+
+
+class NotificationUpdate(BaseModel):
+    is_read: Optional[bool] = None
+
+
+class NotificationResponse(NotificationBase):
+    id: str
+    user_id: str
+    is_read: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationPreferencesBase(BaseModel):
+    email_enabled: bool = True
+    push_enabled: bool = True
+    event_reminders: bool = True
+    team_updates: bool = True
+    new_announcements: bool = True
+    judging_updates: bool = True
+
+
+class NotificationPreferencesCreate(NotificationPreferencesBase):
+    user_id: str
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    email_enabled: Optional[bool] = None
+    push_enabled: Optional[bool] = None
+    event_reminders: Optional[bool] = None
+    team_updates: Optional[bool] = None
+    new_announcements: Optional[bool] = None
+    judging_updates: Optional[bool] = None
+
+
+class NotificationPreferencesResponse(NotificationPreferencesBase):
+    id: str
+    user_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Team Message Models
+# ============================================
+
+class TeamMessageBase(BaseModel):
+    message: str = Field(..., min_length=1)
+    attachments: List[Dict[str, Any]] = []
+    is_announcement: bool = False
+
+
+class TeamMessageCreate(TeamMessageBase):
+    team_id: str
+
+
+class TeamMessageUpdate(BaseModel):
+    message: Optional[str] = Field(None, min_length=1)
+    is_announcement: Optional[bool] = None
+
+
+class TeamMessageResponse(TeamMessageBase):
+    id: str
+    team_id: str
+    user_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Event Announcement Models (Enhanced)
+# ============================================
+
+class AnnouncementPriority(str, Enum):
+    NORMAL = "normal"
+    IMPORTANT = "important"
+    URGENT = "urgent"
+
+
+class EventAnnouncementBase(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    content: str
+    priority: AnnouncementPriority = AnnouncementPriority.NORMAL
+    is_pinned: bool = False
+    is_draft: bool = False
+
+
+class EventAnnouncementCreate(EventAnnouncementBase):
+    event_id: str
+    author_id: str
+    scheduled_for: Optional[datetime] = None
+
+
+class EventAnnouncementUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    content: Optional[str] = None
+    priority: Optional[AnnouncementPriority] = None
+    is_pinned: Optional[bool] = None
+    is_draft: Optional[bool] = None
+    scheduled_for: Optional[datetime] = None
+    published_at: Optional[datetime] = None
+
+
+class EventAnnouncementResponse(EventAnnouncementBase):
+    id: str
+    event_id: str
+    author_id: str
+    published_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Submission Version Models
+# ============================================
+
+class SubmissionVersionBase(BaseModel):
+    version: int = Field(..., ge=1)
+    project_name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    github_url: Optional[str] = None
+    demo_video_url: Optional[str] = None
+    pitch_deck_url: Optional[str] = None
+    additional_links: List[Dict[str, Any]] = []
+    is_final: bool = False
+
+
+class SubmissionVersionCreate(SubmissionVersionBase):
+    registration_id: str
+
+
+class SubmissionVersionResponse(SubmissionVersionBase):
+    id: str
+    registration_id: str
+    submitted_at: datetime
 
     class Config:
         from_attributes = True

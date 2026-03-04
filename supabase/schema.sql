@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================
 
 CREATE TYPE user_role AS ENUM ('admin', 'organizer', 'captain', 'attendee');
-CREATE TYPE event_type AS ENUM ('sports', 'tech_fest', 'seminar', 'other');
+CREATE TYPE event_type AS ENUM ('sports', 'tech_fest', 'seminar', 'hackathon', 'coding_competition', 'other');
 CREATE TYPE event_status AS ENUM ('draft', 'published', 'ongoing', 'completed', 'cancelled');
 CREATE TYPE team_status AS ENUM ('registered', 'confirmed', 'eliminated', 'winner');
 CREATE TYPE match_status AS ENUM ('scheduled', 'in_progress', 'completed', 'cancelled');
@@ -35,10 +35,14 @@ CREATE TABLE events (
     venue VARCHAR(255) NOT NULL,
     max_participants INTEGER NOT NULL,
     registration_deadline TIMESTAMP WITH TIME ZONE NOT NULL,
+    registration_fee DECIMAL(10, 2) DEFAULT 0.00,
+    currency VARCHAR(3) DEFAULT 'INR',
     status event_status DEFAULT 'draft',
     cover_image TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT check_registration_fee_non_negative CHECK (registration_fee >= 0),
+    CONSTRAINT check_valid_currency CHECK (currency IN ('INR', 'USD', 'EUR', 'GBP'))
 );
 
 -- Teams Table
@@ -48,6 +52,7 @@ CREATE TABLE teams (
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     captain_id UUID, -- References auth.users
     status team_status DEFAULT 'registered',
+    is_public BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -153,6 +158,69 @@ CREATE TABLE volunteers (
     UNIQUE(user_id, event_id)
 );
 
+-- Event Type Configs Table (for flexible JSON configuration)
+CREATE TABLE event_type_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    config_type VARCHAR(50) NOT NULL,
+    config_data JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(event_id, config_type)
+);
+
+-- Team Skills Table - Skills tags that can be associated with teams
+CREATE TABLE team_skills (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    skill_name VARCHAR(100) NOT NULL,
+    skill_category VARCHAR(50),
+    proficiency_level VARCHAR(20) DEFAULT 'intermediate',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(team_id, skill_name)
+);
+
+-- Team Requirements Table - Skills that a team is looking for
+CREATE TABLE team_requirements (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    skill_name VARCHAR(100) NOT NULL,
+    skill_category VARCHAR(50),
+    required_count INTEGER DEFAULT 1,
+    priority VARCHAR(20) DEFAULT 'medium',
+    is_filled BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- User Skills Table - Skills that users have (participant profiles)
+CREATE TABLE user_skills (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL, -- References auth.users
+    skill_name VARCHAR(100) NOT NULL,
+    skill_category VARCHAR(50),
+    proficiency_level VARCHAR(20) DEFAULT 'intermediate',
+    years_experience INTEGER,
+    is_verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, skill_name)
+);
+
+-- Team Invites Table - Invite-based team joining
+CREATE TABLE team_invites (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    inviter_id UUID NOT NULL, -- References auth.users
+    invitee_email VARCHAR(255),
+    invitee_id UUID, -- References auth.users
+    role VARCHAR(50) DEFAULT 'member',
+    status VARCHAR(20) DEFAULT 'pending',
+    message TEXT,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    responded_at TIMESTAMP WITH TIME ZONE
+);
+
 -- ============================================
 -- INDEXES
 -- ============================================
@@ -189,6 +257,23 @@ CREATE INDEX idx_shifts_event ON shifts(event_id);
 CREATE INDEX idx_volunteers_event ON volunteers(event_id);
 CREATE INDEX idx_volunteers_user ON volunteers(user_id);
 
+CREATE INDEX idx_event_type_configs_event ON event_type_configs(event_id);
+CREATE INDEX idx_event_type_configs_type ON event_type_configs(config_type);
+
+CREATE INDEX idx_team_skills_team ON team_skills(team_id);
+CREATE INDEX idx_team_skills_category ON team_skills(skill_category);
+
+CREATE INDEX idx_team_requirements_team ON team_requirements(team_id);
+CREATE INDEX idx_team_requirements_unfilled ON team_requirements(is_filled) WHERE is_filled = false;
+
+CREATE INDEX idx_user_skills_user ON user_skills(user_id);
+CREATE INDEX idx_user_skills_category ON user_skills(skill_category);
+CREATE INDEX idx_user_skills_proficiency ON user_skills(proficiency_level);
+
+CREATE INDEX idx_team_invites_team ON team_invites(team_id);
+CREATE INDEX idx_team_invites_status ON team_invites(status);
+CREATE INDEX idx_team_invites_email ON team_invites(invitee_email);
+
 -- ============================================
 -- ROW LEVEL SECURITY POLICIES
 -- ============================================
@@ -204,6 +289,11 @@ ALTER TABLE sponsors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shifts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE volunteers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_type_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_requirements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE team_invites ENABLE ROW LEVEL SECURITY;
 
 -- Events policies
 CREATE POLICY "Public events are viewable by everyone"
@@ -401,6 +491,121 @@ CREATE POLICY "Organizers can manage sponsors"
             SELECT organizer_id FROM events e
             JOIN sponsors s ON s.event_id = e.id
             WHERE s.id = sponsors.id
+        )
+    );
+
+-- Event Type Configs policies
+CREATE POLICY "Anyone can view event type configs for published events"
+    ON event_type_configs FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM events e
+            WHERE e.id = event_type_configs.event_id
+            AND e.status IN ('published', 'ongoing', 'completed')
+        )
+    );
+
+CREATE POLICY "Organizers can view configs for their events"
+    ON event_type_configs FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM events e
+            WHERE e.id = event_type_configs.event_id
+            AND e.organizer_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Organizers can manage configs for their events"
+    ON event_type_configs FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM events e
+            WHERE e.id = event_type_configs.event_id
+            AND e.organizer_id = auth.uid()
+        )
+    );
+
+-- Team Skills policies
+CREATE POLICY "Team members can view team skills"
+    ON team_skills FOR SELECT
+    USING (
+        team_id IN (
+            SELECT team_id FROM team_members WHERE user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Team leaders can manage team skills"
+    ON team_skills FOR ALL
+    USING (
+        team_id IN (
+            SELECT team_id FROM team_members 
+            WHERE user_id = auth.uid() AND role = 'leader'
+        )
+    );
+
+-- Team Requirements policies
+CREATE POLICY "Anyone can view team requirements for published events"
+    ON team_requirements FOR SELECT
+    USING (
+        team_id IN (
+            SELECT t.id FROM teams t
+            JOIN events e ON e.id = t.event_id
+            WHERE e.status IN ('published', 'ongoing', 'completed')
+            AND (t.is_public = true OR t.id IN (
+                SELECT team_id FROM team_members WHERE user_id = auth.uid()
+            ))
+        )
+    );
+
+CREATE POLICY "Team leaders can manage requirements"
+    ON team_requirements FOR ALL
+    USING (
+        team_id IN (
+            SELECT team_id FROM team_members 
+            WHERE user_id = auth.uid() AND role = 'leader'
+        )
+    );
+
+-- User Skills policies
+CREATE POLICY "Users can view their own skills"
+    ON user_skills FOR SELECT
+    USING (user_id = auth.uid());
+
+CREATE POLICY "Users can manage their own skills"
+    ON user_skills FOR ALL
+    USING (user_id = auth.uid());
+
+-- Team Invites policies
+CREATE POLICY "Invitees and team members can view invites"
+    ON team_invites FOR SELECT
+    USING (
+        team_id IN (
+            SELECT team_id FROM team_members WHERE user_id = auth.uid()
+        )
+        OR invitee_id = auth.uid()
+    );
+
+CREATE POLICY "Team leaders can create invites"
+    ON team_invites FOR INSERT
+    WITH CHECK (
+        team_id IN (
+            SELECT team_id FROM team_members 
+            WHERE user_id = auth.uid() AND role = 'leader'
+        )
+    );
+
+CREATE POLICY "Invitees can respond to invites"
+    ON team_invites FOR UPDATE
+    USING (
+        invitee_id = auth.uid()
+    );
+
+CREATE POLICY "Team leaders can manage invites"
+    ON team_invites FOR ALL
+    USING (
+        team_id IN (
+            SELECT team_id FROM team_members 
+            WHERE user_id = auth.uid() AND role = 'leader'
         )
     );
 

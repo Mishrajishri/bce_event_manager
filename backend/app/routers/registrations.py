@@ -17,6 +17,7 @@ from app.models import (
 )
 from app.auth import CurrentUser, get_current_user, require_any_user
 from app.supabase import supabase_admin
+from app.services.waitlist import WaitlistService
 
 
 router = APIRouter(tags=["Registrations"])
@@ -64,12 +65,40 @@ async def register_for_event(
     if existing.data:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You are already registered for this event")
 
-    # Check capacity
+    # Check capacity and handle waitlist - use atomic check
     current_count = supabase_admin.table("registrations").select("id", count="exact").eq("event_id", event_id).eq("status", "confirmed").execute()
+    
     if current_count.count and current_count.count >= event["max_participants"]:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Event is full")
+        # Event is full - add to waitlist instead
+        # First verify user isn't already on waitlist to avoid duplicates
+        existing_waitlist = supabase_admin.table("registrations").select("id").eq("event_id", event_id).eq("user_id", current_user.user_id).eq("status", "waitlisted").execute()
+        if existing_waitlist.data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You are already on the waitlist for this event"
+            )
+        
+        registration_data = {
+            "team_id": reg_data.team_id,
+            "payment_amount": reg_data.payment_amount,
+        }
+        waitlist_registration = await WaitlistService.add_to_waitlist(
+            event_id, 
+            current_user.user_id, 
+            registration_data
+        )
+        
+        # Return response with waitlist info - match actual status
+        response_data = {
+            **waitlist_registration,
+            "status": "waitlisted",  # Match actual registration status
+            "payment_status": "unpaid",
+            "message": "Event is full. You've been added to the waitlist.",
+            "waitlist_position": waitlist_registration.get("waitlist_position"),
+        }
+        return RegistrationResponse(**response_data)
 
-    # Create registration with QR code
+    # Create regular registration with QR code
     registration_id = str(uuid.uuid4())
     qr_code = _generate_qr_code(registration_id)
     data = {
@@ -275,7 +304,7 @@ async def delete_registration(
     registration_id: str,
     current_user: CurrentUser = Depends(require_any_user),
 ):
-    """Delete a registration (user cancels their registration)."""
+    """Cancel a registration. If confirmed, promotes someone from waitlist."""
     reg_response = supabase_admin.table("registrations").select("*").eq("id", registration_id).execute()
 
     if not reg_response.data:
@@ -291,5 +320,6 @@ async def delete_registration(
         if current_user.role not in ("super_admin", "admin", "organizer") and event["organizer_id"] != current_user.user_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to delete this registration")
 
-    supabase_admin.table("registrations").delete().eq("id", registration_id).execute()
+    # Use WaitlistService to handle cancellation and auto-promotion
+    await WaitlistService.cancel_registration(registration_id)
 

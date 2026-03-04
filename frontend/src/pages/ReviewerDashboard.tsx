@@ -9,13 +9,11 @@ import {
 } from '@mui/material'
 import { RateReview, Assignment } from '@mui/icons-material'
 import { academicApi } from '../services/api'
-import { useAuthStore, isOrganizer } from '../store'
 import { PageContainer } from '../components/layout_components'
 
 export default function ReviewerDashboard() {
     const { eventId } = useParams<{ eventId: string }>()
     const queryClient = useQueryClient()
-    const { user } = useAuthStore()
 
     const [selectedSubmission, setSelectedSubmission] = useState<any>(null)
     const [reviewData, setReviewData] = useState({ score: 70, comments: '' })
