@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
     Box,
     Typography,
@@ -14,8 +14,9 @@ import {
     Alert,
 } from '@mui/material'
 import { EmojiEvents, SportsSoccer } from '@mui/icons-material'
-import { supabase } from '../services/supabase'
-import type { Match, Team } from '../types'
+import { useQuery } from '@tanstack/react-query'
+import { teamsApi, matchesApi } from '../services/api'
+import type { Team } from '../types'
 
 interface LeaderboardEntry {
     team: Team
@@ -32,67 +33,26 @@ interface LeaderboardProps {
 }
 
 export default function Leaderboard({ eventId }: LeaderboardProps) {
-    const [entries, setEntries] = useState<LeaderboardEntry[]>([])
-    const [matches, setMatches] = useState<Match[]>([])
-    const [loading, setLoading] = useState(true)
-    const [liveTag, setLiveTag] = useState(false)
+    const [liveTag] = useState(false)
 
-    useEffect(() => {
-        // Initial fetch
-        fetchData()
+    const { data: teams, isLoading: teamsLoading, error: teamsError } = useQuery({
+        queryKey: ['teams', eventId],
+        queryFn: () => teamsApi.listByEvent(eventId),
+        staleTime: 1000 * 60 * 2, // 2 minutes
+    })
 
-        // Subscribe to real-time match updates
-        const channel = supabase
-            .channel(`matches-${eventId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: '*',
-                    schema: 'public',
-                    table: 'matches',
-                    filter: `event_id=eq.${eventId}`,
-                },
-                () => {
-                    setLiveTag(true)
-                    fetchData()
-                    // Flash live indicator
-                    setTimeout(() => setLiveTag(false), 3000)
-                }
-            )
-            .subscribe()
+    const { data: matches, isLoading: matchesLoading, error: matchesError } = useQuery({
+        queryKey: ['matches', eventId],
+        queryFn: () => matchesApi.listByEvent(eventId),
+        staleTime: 1000 * 30, // 30 seconds for live updates
+    })
 
-        return () => {
-            supabase.removeChannel(channel)
-        }
-    }, [eventId])
+    const loading = teamsLoading || matchesLoading
+    const error = teamsError || matchesError
 
-    async function fetchData() {
-        try {
-            // Fetch teams
-            const teamsResp = await supabase
-                .from('teams')
-                .select('*')
-                .eq('event_id', eventId)
+    const entries = useMemo(() => {
+        if (!teams || !matches) return []
 
-            // Fetch matches
-            const matchesResp = await supabase
-                .from('matches')
-                .select('*')
-                .eq('event_id', eventId)
-                .order('match_date', { ascending: false })
-
-            if (teamsResp.data && matchesResp.data) {
-                setMatches(matchesResp.data)
-                calculateStandings(teamsResp.data, matchesResp.data)
-            }
-        } catch (err) {
-            console.error('Failed to fetch leaderboard data:', err)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    function calculateStandings(teams: Team[], matchList: Match[]) {
         const standings: Record<string, LeaderboardEntry> = {}
 
         teams.forEach((team) => {
@@ -107,7 +67,7 @@ export default function Leaderboard({ eventId }: LeaderboardProps) {
             }
         })
 
-        matchList
+        matches
             .filter((m) => m.status === 'completed')
             .forEach((match) => {
                 const team1 = standings[match.team1_id]
@@ -134,18 +94,22 @@ export default function Leaderboard({ eventId }: LeaderboardProps) {
                 }
             })
 
-        const sorted = Object.values(standings).sort(
+        return Object.values(standings).sort(
             (a, b) => b.points - a.points || (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst)
         )
-
-        setEntries(sorted)
-    }
+    }, [teams, matches])
 
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
             </Box>
+        )
+    }
+
+    if (error) {
+        return (
+            <Alert severity="error">Failed to load leaderboard data. Please try again.</Alert>
         )
     }
 
@@ -226,7 +190,7 @@ export default function Leaderboard({ eventId }: LeaderboardProps) {
             )}
 
             {/* Recent Matches */}
-            {matches.length > 0 && (
+            {matches && matches.length > 0 && (
                 <Box sx={{ mt: 3 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Recent Matches</Typography>
                     {matches.slice(0, 5).map((match) => (

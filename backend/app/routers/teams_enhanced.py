@@ -1,6 +1,8 @@
 """Teams Enhanced Router - Extended team management with skill requirements."""
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
+from datetime import datetime
+from pydantic import BaseModel, Field
 
 from ..models.schemas import TeamResponse
 from ..auth import CurrentUser, get_current_user_optional, require_any_user
@@ -261,3 +263,362 @@ async def get_recommended_teammates(
     recommendations = sorted(user_matches.values(), key=lambda x: x["score"], reverse=True)[:limit]
     
     return {"recommendations": recommendations}
+
+
+# ========================
+# Team Announcements
+# ========================
+
+@router.get("/{team_id}/announcements")
+async def get_team_announcements(
+    team_id: str,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    """Get all announcements for a team (visible to team members and captain)."""
+    # Verify team exists
+    team_response = supabase_admin.table("teams").select("id").eq("id", team_id).execute()
+    if not team_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found"
+        )
+    
+    # Get announcements
+    response = supabase_admin.table("team_announcements").select("*").eq("team_id", team_id).order("created_at", desc=True).execute()
+    
+    return response.data
+
+
+@router.post("/{team_id}/announcements")
+async def create_team_announcement(
+    team_id: str,
+    content: str,
+    current_user: CurrentUser = Depends(require_any_user),
+):
+    """Create a new announcement for a team (captain only)."""
+    # Verify team exists
+    team_response = supabase_admin.table("teams").select("*").eq("id", team_id).execute()
+    if not team_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found"
+        )
+    
+    team = team_response.data[0]
+    
+    # Check if user is captain
+    if team.get("captain_id") != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only team captains can post announcements"
+        )
+    
+    # Create announcement
+    data = {
+        "team_id": team_id,
+        "author_id": current_user.user_id,
+        "content": content,
+    }
+    
+    response = supabase_admin.table("team_announcements").insert(data).execute()
+    
+    if response.error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=response.error.message
+        )
+    
+    return response.data[0]
+
+
+@router.delete("/{team_id}/announcements/{announcement_id}")
+async def delete_team_announcement(
+    team_id: str,
+    announcement_id: str,
+    current_user: CurrentUser = Depends(require_any_user),
+):
+    """Delete a team announcement (author only)."""
+    # Verify announcement exists
+    announcement_response = supabase_admin.table("team_announcements").select("*").eq("id", announcement_id).execute()
+    if not announcement_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Announcement not found"
+        )
+    
+    announcement = announcement_response.data[0]
+    
+    # Check if user is the author
+    if announcement.get("author_id") != current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the author can delete this announcement"
+        )
+    
+    # Delete announcement
+    response = supabase_admin.table("team_announcements").delete().eq("id", announcement_id).execute()
+    
+    if response.error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=response.error.message
+        )
+    
+    return {"message": "Announcement deleted successfully"}
+
+
+# ========================
+# Team Members
+# ========================
+
+@router.get("/{team_id}/members-details")
+async def get_team_members_details(
+    team_id: str,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    """Get detailed information about team members."""
+    # Verify team exists
+    team_response = supabase_admin.table("teams").select("*").eq("id", team_id).execute()
+    if not team_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found"
+        )
+    
+    team = team_response.data[0]
+    
+    # Get team members with user details
+    members_response = supabase_admin.table("team_members").select("*").eq("team_id", team_id).execute()
+    
+    # Get user details for each member
+    members = members_response.data
+    member_ids = [m["user_id"] for m in members]
+    
+    if member_ids:
+        users_response = supabase_admin.table("users").select("id, email, first_name, last_name, phone, enrollment_number, branch, college_name").in_("id", member_ids).execute()
+        
+        users_map = {u["id"]: u for u in users_response.data}
+        
+        # Attach user details to members
+        for member in members:
+            user_id = member.get("user_id")
+            if user_id in users_map:
+                member["user"] = users_map[user_id]
+    
+    # Add captain info
+    if team.get("captain_id"):
+        captain_response = supabase_admin.table("users").select("id, email, first_name, last_name").eq("id", team["captain_id"]).execute()
+        if captain_response.data:
+            team["captain"] = captain_response.data[0]
+    
+    return {
+        "team": team,
+        "members": members
+    }
+
+
+# ========================
+# Team Templates
+# ========================
+
+class TeamTemplateBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    min_team_size: int = Field(1, ge=1)
+    max_team_size: int = Field(10, ge=1)
+    is_public: bool = True
+
+
+class TeamTemplateCreate(TeamTemplateBase):
+    event_id: str
+
+
+class TemplateRoleBase(BaseModel):
+    role_name: str = Field(..., min_length=1, max_length=100)
+    role_description: Optional[str] = None
+    required_count: int = Field(1, ge=1)
+    skills_needed: Optional[List[str]] = []
+
+
+class TemplateRoleCreate(TemplateRoleBase):
+    template_id: str
+
+
+@router.post("/templates", status_code=status.HTTP_201_CREATED)
+async def create_team_template(
+    template: TeamTemplateCreate,
+    current_user: CurrentUser = Depends(require_any_user),
+):
+    """Create a team template for an event."""
+    # Check permission
+    event_response = supabase_admin.table("events").select("organizer_id").eq("id", template.event_id).execute()
+    if not event_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found"
+        )
+    
+    is_organizer = event_response.data[0]["organizer_id"] == current_user.user_id
+    if not is_organizer and current_user.role not in ("super_admin", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only event organizers can create templates"
+        )
+    
+    data = {
+        "event_id": template.event_id,
+        "name": template.name,
+        "description": template.description,
+        "min_team_size": template.min_team_size,
+        "max_team_size": template.max_team_size,
+        "is_public": template.is_public,
+        "created_by": current_user.user_id,
+    }
+    
+    response = supabase_admin.table("team_templates").insert(data).execute()
+    
+    if response.error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=response.error.message
+        )
+    
+    return response.data[0]
+
+
+@router.get("/templates/event/{event_id}")
+async def list_team_templates(
+    event_id: str,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    """List all templates for an event."""
+    response = supabase_admin.table("team_templates").select("*").eq("event_id", event_id).execute()
+    
+    if response.error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=response.error.message
+        )
+    
+    templates = response.data or []
+    
+    # Get roles for each template
+    if templates:
+        template_ids = [t["id"] for t in templates]
+        roles_response = supabase_admin.table("template_roles").select("*").in_("template_id", template_ids).execute()
+        
+        roles_by_template = {}
+        for role in roles_response.data or []:
+            tid = role.get("template_id")
+            if tid not in roles_by_template:
+                roles_by_template[tid] = []
+            roles_by_template[tid].append(role)
+        
+        for template in templates:
+            template["roles"] = roles_by_template.get(template["id"], [])
+    
+    return templates
+
+
+@router.get("/templates/{template_id}")
+async def get_team_template(
+    template_id: str,
+    current_user: Optional[CurrentUser] = Depends(get_current_user_optional),
+):
+    """Get a specific template with roles."""
+    response = supabase_admin.table("team_templates").select("*").eq("id", template_id).execute()
+    
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Template not found"
+        )
+    
+    template = response.data[0]
+    
+    # Get roles
+    roles_response = supabase_admin.table("template_roles").select("*").eq("template_id", template_id).order("display_order").execute()
+    template["roles"] = roles_response.data or []
+    
+    return template
+
+
+@router.post("/templates/{template_id}/roles", status_code=status.HTTP_201_CREATED)
+async def add_template_role(
+    template_id: str,
+    role: TemplateRoleCreate,
+    current_user: CurrentUser = Depends(require_any_user),
+):
+    """Add a role to a template."""
+    # Verify template exists
+    template_response = supabase_admin.table("team_templates").select("*").eq("id", template_id).execute()
+    if not template_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Template not found"
+        )
+    
+    # Check permission
+    template = template_response.data[0]
+    if template.get("created_by") != current_user.user_id and current_user.role not in ("super_admin", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only template creator can add roles"
+        )
+    
+    # Get current max display_order
+    max_order_response = supabase_admin.table("template_roles").select("display_order").eq("template_id", template_id).order("display_order", desc=True).limit(1).execute()
+    next_order = (max_order_response.data[0]["display_order"] + 1) if max_order_response.data else 0
+    
+    data = {
+        "template_id": template_id,
+        "role_name": role.role_name,
+        "role_description": role.role_description,
+        "required_count": role.required_count,
+        "skills_needed": role.skills_needed,
+        "display_order": next_order,
+    }
+    
+    response = supabase_admin.table("template_roles").insert(data).execute()
+    
+    if response.error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=response.error.message
+        )
+    
+    return response.data[0]
+
+
+@router.delete("/templates/{template_id}/roles/{role_id}")
+async def delete_template_role(
+    template_id: str,
+    role_id: str,
+    current_user: CurrentUser = Depends(require_any_user),
+):
+    """Delete a role from a template."""
+    # Verify template exists
+    template_response = supabase_admin.table("team_templates").select("*").eq("id", template_id).execute()
+    if not template_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Template not found"
+        )
+    
+    # Check permission
+    template = template_response.data[0]
+    if template.get("created_by") != current_user.user_id and current_user.role not in ("super_admin", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only template creator can delete roles"
+        )
+    
+    response = supabase_admin.table("template_roles").delete().eq("id", role_id).execute()
+    
+    if response.error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=response.error.message
+        )
+    
+    return {"message": "Role deleted"}

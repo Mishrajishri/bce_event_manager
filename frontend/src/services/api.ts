@@ -30,10 +30,29 @@ import type {
   TeamRequest,
   TeamRequestCreate,
   Mentor,
+  MentorCreate,
+  MentorUpdate,
   MentorshipSlot,
+  MentorshipSlotCreate,
   MentorshipBooking,
   MentorshipBookingCreate,
+  MentorshipBookingUpdate,
+  MentorshipFeedback,
+  MentorshipFeedbackCreate,
+  MentorRecommendation,
+  MentorStats,
   OrganizerAnalytics,
+  Milestone,
+  TeamMilestone,
+  MilestoneSubmission,
+  MilestoneSubmissionType,
+  MilestoneReminder,
+  TeamMilestoneProgress,
+  MilestoneStatus,
+  Prize,
+  PrizeCategory,
+  PrizeWinner,
+  PrizeSponsor,
 } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
@@ -463,6 +482,12 @@ export const adminApi = {
       method: 'PUT',
     }),
 
+  cloneEvent: (eventId: string, newName: string) =>
+    fetchWithAuth(`${API_BASE_URL}/admin/events/${eventId}/clone`, {
+      method: 'POST',
+      body: JSON.stringify({ name: newName }),
+    }),
+
   getAuditLogs: (params?: { action?: string; target_type?: string }) => {
     const query = params ? new URLSearchParams(params as Record<string, string>).toString() : ''
     return fetchWithAuth(`${API_BASE_URL}/admin/audit-logs${query ? `?${query}` : ''}`) as Promise<AuditLog[]>
@@ -472,6 +497,50 @@ export const adminApi = {
     fetchWithAuth(`${API_BASE_URL}/admin/stats`) as Promise<PlatformStats>,
 
   exportUsersCSV: () => `${API_BASE_URL}/admin/export/users`,
+
+  // Bulk user actions
+  bulkUserAction: async (data: { user_ids: string[]; action: string; role?: string }) => {
+    return fetchWithAuth(`${API_BASE_URL}/admin/users/bulk-action`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<{ message: string }>;
+  },
+
+  // Enhanced stats
+  getEnhancedStats: () =>
+    fetchWithAuth(`${API_BASE_URL}/admin/stats/enhanced`) as Promise<{
+      total_users: number;
+      total_events: number;
+      total_registrations: number;
+      total_revenue: number;
+      active_events: number;
+      users_by_role: Record<string, number>;
+      events_by_status: Record<string, number>;
+      registrations_by_status: Record<string, number>;
+      recent_registrations: number;
+      events_by_type: Record<string, number>;
+      revenue_by_month: Array<{ month: string; revenue: number }>;
+      registrations_by_month: Array<{ month: string; count: number }>;
+      user_growth_by_month: Array<{ month: string; count: number }>;
+      top_organizers: Array<{ id: string; email: string; name: string; event_count: number }>;
+      recent_activity: Array<{ type: string; description: string; timestamp: string }>;
+    }>,
+
+  // Audit logs export
+  exportAuditLogsCSV: (params?: { action?: string; target_type?: string; actor_id?: string }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return `${API_BASE_URL}/admin/export/audit-logs${query ? `?${query}` : ''}`;
+  },
+
+  // System settings
+  getSystemSettings: () =>
+    fetchWithAuth(`${API_BASE_URL}/admin/settings`) as Promise<Record<string, any>>,
+
+  updateSystemSettings: async (settings: Record<string, any>) =>
+    fetchWithAuth(`${API_BASE_URL}/admin/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }) as Promise<{ message: string; settings: Record<string, any> }>,
 }
 
 // Feedback API
@@ -562,6 +631,82 @@ export const techApi = {
     }) as Promise<MentorshipBooking>,
 }
 
+// Enhanced Mentorship API - Phase 7
+export const mentorshipApi = {
+  // Mentor Management
+  createMentor: (data: MentorCreate) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/mentors`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<Mentor>,
+
+  getMentor: (mentorId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/mentors/${mentorId}`) as Promise<Mentor>,
+
+  updateMentor: (mentorId: string, data: MentorUpdate) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/mentors/${mentorId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<Mentor>,
+
+  approveMentor: (mentorId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/mentors/${mentorId}/approve`, {
+      method: 'POST',
+    }) as Promise<Mentor>,
+
+  rejectMentor: (mentorId: string, rejectionReason: string) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/mentors/${mentorId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejection_reason: rejectionReason }),
+    }) as Promise<Mentor>,
+
+  // Slot Management
+  createSlot: (data: MentorshipSlotCreate) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/slots`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<MentorshipSlot>,
+
+  updateSlot: (slotId: string, data: Partial<MentorshipSlotCreate>) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/slots/${slotId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<MentorshipSlot>,
+
+  deleteSlot: (slotId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/slots/${slotId}`, { method: 'DELETE' }),
+
+  // Bookings
+  getMyBookings: () =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/bookings/my`) as Promise<MentorshipBooking[]>,
+
+  updateBooking: (bookingId: string, data: MentorshipBookingUpdate) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/bookings/${bookingId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<MentorshipBooking>,
+
+  // Feedback & Ratings
+  createFeedback: (bookingId: string, data: MentorshipFeedbackCreate) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/feedback?booking_id=${bookingId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<MentorshipFeedback>,
+
+  getMentorFeedback: (mentorId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/mentors/${mentorId}/feedback`) as Promise<MentorshipFeedback[]>,
+
+  getMentorRatings: (mentorId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/mentors/${mentorId}/ratings`) as Promise<MentorRecommendation>,
+
+  // Analytics
+  getEventMentorAnalytics: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/events/${eventId}/mentor-analytics`) as Promise<any[]>,
+
+  getMyMentorStats: () =>
+    fetchWithAuth(`${API_BASE_URL}/mentorship/my-stats`) as Promise<MentorStats>,
+}
+
 // Organizer API (Organizers and above)
 export const organizerApi = {
   getAnalytics: () =>
@@ -569,6 +714,211 @@ export const organizerApi = {
 
   listEvents: () =>
     fetchWithAuth(`${API_BASE_URL}/organizer/events`) as Promise<Event[]>,
+
+  listParticipants: (params?: {
+    event_id?: string;
+    status?: string;
+    payment_status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return fetchWithAuth(`${API_BASE_URL}/organizer/participants${query ? `?${query}` : ''}`) as Promise<{
+      participants: Array<{
+        id: string
+        user_id: string
+        event_id: string
+        event_name: string
+        event_type: string
+        status: string
+        payment_status: string
+        payment_amount: number
+        qr_code?: string
+        checked_in_at?: string
+        registered_at: string
+        user: {
+          id: string
+          email: string
+          first_name: string
+          last_name: string
+          phone?: string
+          enrollment_number?: string
+          branch?: string
+          college_name?: string
+        }
+      }>
+      total: number
+      limit: number
+      offset: number
+      events: Array<{
+        id: string
+        name: string
+        event_type: string
+        status: string
+      }>
+    }>
+  },
+
+  listTeams: (params?: {
+    event_id?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return fetchWithAuth(`${API_BASE_URL}/organizer/teams${query ? `?${query}` : ''}`) as Promise<{
+      teams: Array<{
+        id: string
+        name: string
+        event_id: string
+        event_name: string
+        event_type: string
+        status: string
+        captain_id?: string
+        captain?: {
+          id: string
+          first_name: string
+          last_name: string
+          email: string
+        }
+        member_count: number
+        members: Array<{
+          id: string
+          user_id: string
+          role: string
+          jersey_number?: number
+          is_active: boolean
+          user: {
+            id: string
+            first_name: string
+            last_name: string
+            email: string
+          }
+        }>
+        created_at: string
+      }>
+      total: number
+      limit: number
+      offset: number
+      events: Array<{
+        id: string
+        name: string
+        event_type: string
+        status: string
+      }>
+    }>
+  },
+
+  listExpenses: (params?: {
+    event_id?: string;
+    category?: string;
+    min_amount?: number;
+    max_amount?: number;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return fetchWithAuth(`${API_BASE_URL}/organizer/expenses${query ? `?${query}` : ''}`) as Promise<{
+      expenses: Array<{
+        id: string
+        event_id: string
+        event_name: string
+        category: string
+        description: string
+        amount: number
+        date: string
+        receipt?: string
+        created_by_id?: string
+        created_at: string
+      }>
+      total: number
+      total_amount: number
+      categories: Array<{
+        category: string
+        count: number
+        total: number
+      }>
+      events: Array<{
+        id: string
+        name: string
+        event_type: string
+        status: string
+      }>
+    }>
+  },
+
+  getVolunteers: (params?: {
+    event_id?: string;
+    status?: string;
+    shift_id?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString()
+    return fetchWithAuth(`${API_BASE_URL}/organizer/volunteers${query ? `?${query}` : ''}`) as Promise<{
+      volunteers: Array<{
+        id: string
+        user_id: string
+        event_id: string
+        event_name: string
+        shift_id: string
+        shift_name: string
+        shift_start: string
+        shift_end: string
+        shift_location: string
+        role: string
+        status: string
+        checked_in_at: string | null
+        hours_worked: number
+        created_at: string
+        user: {
+          id: string
+          email: string
+          first_name: string
+          last_name: string
+          phone: string
+        }
+      }>
+      total: number
+      shifts: Array<{
+        id: string
+        event_id: string
+        name: string
+        start_time: string
+        end_time: string
+        location: string
+        required_volunteers: number
+      }>
+      shifts_by_event: Record<string, Array<{
+        id: string
+        name: string
+        start_time: string
+        end_time: string
+        location: string
+        required_volunteers: number
+      }>>
+      events: Array<{
+        id: string
+        name: string
+        event_type: string
+        status: string
+      }>
+    }>
+  },
+
+  checkInVolunteer: (volunteerId: string) => {
+    return fetchWithAuth(`${API_BASE_URL}/organizer/volunteers/${volunteerId}/check-in`, {
+      method: 'POST',
+    }) as Promise<{ message: string; checked_in_at: string }>
+  },
+
+  completeVolunteer: (volunteerId: string) => {
+    return fetchWithAuth(`${API_BASE_URL}/organizer/volunteers/${volunteerId}/complete`, {
+      method: 'POST',
+    }) as Promise<{ message: string; hours_worked: number }>
+  },
 }
 
 // Event Type Configs API
@@ -652,6 +1002,52 @@ export const skillsApi = {
   // Available skills list
   listAvailableSkills: () =>
     fetchWithAuth(`${API_BASE_URL}/skills/available`) as Promise<any[]>,
+
+  // Team announcements (new)
+  getTeamAnnouncements: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/${teamId}/announcements`) as Promise<any[]>,
+
+  createTeamAnnouncement: (teamId: string, content: string) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/${teamId}/announcements`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }) as Promise<any>,
+
+  deleteTeamAnnouncement: (teamId: string, announcementId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/${teamId}/announcements/${announcementId}`, {
+      method: 'DELETE',
+    }),
+
+  // Team members details
+  getTeamMembersDetails: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/${teamId}/members-details`) as Promise<{
+      team: any;
+      members: any[];
+    }>,
+
+  // Team Templates (new)
+  createTeamTemplate: (data: { event_id: string; name: string; description?: string; min_team_size?: number; max_team_size?: number; is_public?: boolean }) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/templates`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  listTeamTemplates: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/templates/event/${eventId}`) as Promise<any[]>,
+
+  getTeamTemplate: (templateId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/templates/${templateId}`) as Promise<any>,
+
+  addTemplateRole: (templateId: string, data: { role_name: string; role_description?: string; required_count?: number; skills_needed?: string[] }) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/templates/${templateId}/roles`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  deleteTemplateRole: (templateId: string, roleId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/teams-enhanced/templates/${templateId}/roles/${roleId}`, {
+      method: 'DELETE',
+    }),
 }
 
 // Notifications API
@@ -731,5 +1127,251 @@ export const analyticsEnhancedApi = {
 
   getPlatformStats: () =>
     fetchWithAuth(`${API_BASE_URL}/analytics/platform`) as Promise<any>,
+}
+
+// Judging API - Phase 6
+export const judgingApi = {
+  // Judge Panels
+  createPanel: (data: { event_id: string; name: string; description?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/panels`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  listPanels: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/panels/event/${eventId}`) as Promise<any[]>,
+
+  getPanel: (panelId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/panels/${panelId}`) as Promise<any>,
+
+  addJudgeToPanel: (panelId: string, data: { user_id: string; role?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/panels/${panelId}/judges`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  removeJudgeFromPanel: (panelId: string, userId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/panels/${panelId}/judges/${userId}`, {
+      method: 'DELETE',
+    }),
+
+  // Judge Assignments
+  assignJudge: (data: { panel_id: string; submission_id: string; judge_id: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/assignments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  getMyAssignments: (judgeId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/assignments/judge/${judgeId}`) as Promise<any[]>,
+
+  updateAssignmentStatus: (assignmentId: string, status: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/assignments/${assignmentId}/status?status=${status}`, {
+      method: 'PUT',
+    }) as Promise<any>,
+
+  // Conflicts
+  reportConflict: (data: { judge_id: string; submission_id: string; conflict_type: string; description?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/conflicts`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  getEventConflicts: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/conflicts/event/${eventId}`) as Promise<any[]>,
+
+  checkConflicts: (submissionId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/conflicts/check/${submissionId}`) as Promise<any>,
+
+  // Peer Reviews
+  submitPeerReview: (data: { submission_id: string; rating: number; feedback?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/peer-reviews`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  getPeerReviews: (submissionId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/peer-reviews/submission/${submissionId}`) as Promise<any[]>,
+
+  // Public Voting
+  submitVote: (data: { submission_id: string; vote_value: number }) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/votes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  getVoteStats: (submissionId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/votes/submission/${submissionId}`) as Promise<{
+      total_votes: number;
+      average_rating: number;
+      user_voted: boolean;
+      user_vote_value: number;
+    }>,
+
+  // Demo Sessions
+  createDemoSession: (data: { submission_id: string; start_time: string; end_time?: string; notes?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/demo-sessions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<any>,
+
+  listDemoSessions: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/demo-sessions/event/${eventId}`) as Promise<any[]>,
+
+  updateDemoSessionStatus: (sessionId: string, status: string) =>
+    fetchWithAuth(`${API_BASE_URL}/judging/demo-sessions/${sessionId}/status?status=${status}`, {
+      method: 'PUT',
+    }) as Promise<any>,
+}
+
+// Milestones API - Phase 6.3
+export const milestonesApi = {
+  // Event milestones (organizer endpoints)
+  createMilestone: (eventId: string, data: { name: string; description?: string; due_date: string; point_value?: number; is_required?: boolean; sequence_order?: number }) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/events/${eventId}/milestones`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<Milestone>,
+
+  listEventMilestones: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/events/${eventId}/milestones`) as Promise<Milestone[]>,
+
+  getMilestone: (eventId: string, milestoneId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/events/${eventId}/milestones/${milestoneId}`) as Promise<Milestone>,
+
+  updateMilestone: (eventId: string, milestoneId: string, data: Partial<{ name: string; description: string; due_date: string; point_value: number; is_required: boolean; sequence_order: number }>) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/events/${eventId}/milestones/${milestoneId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<Milestone>,
+
+  deleteMilestone: (eventId: string, milestoneId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/events/${eventId}/milestones/${milestoneId}`, { method: 'DELETE' }),
+
+  // Team milestones
+  listTeamMilestones: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/teams/${teamId}/milestones`) as Promise<TeamMilestone[]>,
+
+  updateTeamMilestone: (teamId: string, milestoneId: string, data: { status?: MilestoneStatus; submission_link?: string; submission_notes?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/teams/${teamId}/milestones/${milestoneId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<TeamMilestone>,
+
+  getTeamProgress: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/teams/${teamId}/progress`) as Promise<TeamMilestoneProgress>,
+
+  // Milestone submissions (checkpoints)
+  createSubmission: (teamMilestoneId: string, data: { submission_type: MilestoneSubmissionType; submission_url: string; description?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/team-milestones/${teamMilestoneId}/submissions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<MilestoneSubmission>,
+
+  listSubmissions: (teamMilestoneId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/team-milestones/${teamMilestoneId}/submissions`) as Promise<MilestoneSubmission[]>,
+
+  // Organizer review
+  reviewTeamMilestone: (eventId: string, teamId: string, milestoneId: string, data: { status: 'approved' | 'rejected'; feedback?: string; points_earned: number }) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/events/${eventId}/teams/${teamId}/milestones/${milestoneId}/review`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<TeamMilestone>,
+
+  listTeamMilestonesForOrganizer: (eventId: string, teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/events/${eventId}/teams/${teamId}/milestones`) as Promise<TeamMilestone[]>,
+
+  // Reminders
+  createReminder: (data: { team_milestone_id: string; reminder_type: 'due_soon' | 'overdue' | 'custom'; scheduled_for?: string; message?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/reminders`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<MilestoneReminder>,
+
+  listTeamReminders: (teamId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/milestones/teams/${teamId}/reminders`) as Promise<MilestoneReminder[]>,
+}
+
+// Prizes API - Phase 6.4
+export const prizesApi = {
+  // Prize Categories
+  createCategory: (eventId: string, data: { name: string; description?: string; rank?: number; is_special?: boolean; icon?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/categories`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<PrizeCategory>,
+
+  listCategories: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/categories`) as Promise<PrizeCategory[]>,
+
+  updateCategory: (eventId: string, categoryId: string, data: Partial<{ name: string; description: string; rank: number; is_special: boolean; icon: string }>) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/categories/${categoryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<PrizeCategory>,
+
+  deleteCategory: (eventId: string, categoryId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/categories/${categoryId}`, { method: 'DELETE' }),
+
+  // Prizes
+  createPrize: (eventId: string, data: { name: string; category_id?: string; description?: string; prize_type: string; value?: number; currency?: string; image_url?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<Prize>,
+
+  listPrizes: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}`) as Promise<Prize[]>,
+
+  getPrize: (prizeId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/${prizeId}`) as Promise<any>,
+
+  updatePrize: (eventId: string, prizeId: string, data: Partial<{ name: string; description: string; prize_type: string; value: number; image_url: string }>) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/${prizeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<Prize>,
+
+  deletePrize: (eventId: string, prizeId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/${prizeId}`, { method: 'DELETE' }),
+
+  // Prize Winners
+  announceWinner: (prizeId: string, data: { team_id?: string; user_id?: string; rank: number }) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/${prizeId}/winners`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<PrizeWinner>,
+
+  getPrizeWinners: (prizeId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/${prizeId}/winners`) as Promise<PrizeWinner[]>,
+
+  getEventWinners: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/winners`) as Promise<any[]>,
+
+  updateWinnerDistribution: (eventId: string, winnerId: string, data: { distribution_status: string; distribution_notes?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/winners/${winnerId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }) as Promise<PrizeWinner>,
+
+  removeWinner: (eventId: string, winnerId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/winners/${winnerId}`, { method: 'DELETE' }),
+
+  // Prize Sponsors
+  createSponsor: (eventId: string, data: { name: string; website_url?: string; logo_url?: string; tier?: string; contribution_description?: string }) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/sponsors`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }) as Promise<PrizeSponsor>,
+
+  listSponsors: (eventId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/sponsors`) as Promise<PrizeSponsor[]>,
+
+  deleteSponsor: (eventId: string, sponsorId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/events/${eventId}/sponsors/${sponsorId}`, { method: 'DELETE' }),
+
+  // Prize Claims
+  claimPrize: (winnerId: string) =>
+    fetchWithAuth(`${API_BASE_URL}/prizes/winners/${winnerId}/claim`, { method: 'POST' }) as Promise<{ message: string; claim_token: string }>,
 }
 

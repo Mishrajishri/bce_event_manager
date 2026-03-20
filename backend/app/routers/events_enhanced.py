@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 import os
 
 from ..models.schemas import EventResponse, EventStatus, EventType
-from ...auth import CurrentUser, get_current_user_optional
-from ...supabase import supabase_admin
+from ..auth import CurrentUser, get_current_user_optional
+from ..supabase import supabase_admin
 
 router = APIRouter(prefix="/events-enhanced", tags=["Events Enhanced"])
 

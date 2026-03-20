@@ -1,5 +1,5 @@
 """Analytics Router - Enhanced API endpoints for platform analytics and metrics."""
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, Depends
 from supabase import Client, create_client
 from typing import List, Optional
 from datetime import datetime, timedelta

@@ -1,106 +1,312 @@
-"""Email notification service using Resend API (free tier: 100 emails/day)."""
+"""Email Service - Resend integration for transactional emails."""
 import os
-import httpx
 import logging
+from typing import Optional, List, Dict, Any
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")
+# Try to import Resend, but don't fail if not installed
+try:
+    import resend
+    RESEND_AVAILABLE = True
+except ImportError:
+    RESEND_AVAILABLE = False
+    logger.warning("Resend SDK not installed. Email sending will be simulated.")
 
 
-async def send_email(to: str, subject: str, html: str) -> bool:
-    """
-    Send an email using Resend API.
-
-    Args:
-        to: Recipient email address
-        subject: Email subject line
-        html: HTML body content
-
-    Returns:
-        True if email sent successfully, False otherwise
-    """
-    if not RESEND_API_KEY:
-        logger.warning("RESEND_API_KEY not set — email not sent")
-        return False
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.resend.com/emails",
-                headers={
-                    "Authorization": f"Bearer {RESEND_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "from": FROM_EMAIL,
-                    "to": [to],
-                    "subject": subject,
-                    "html": html,
-                },
+class EmailService:
+    """Email service using Resend for transactional emails."""
+    
+    def __init__(self):
+        self.api_key = os.getenv("RESEND_API_KEY")
+        self.from_email = os.getenv("EMAIL_FROM_ADDRESS", "noreply@bceevents.com")
+        self.from_name = os.getenv("EMAIL_FROM_NAME", "BCE Events")
+        
+        if RESEND_AVAILABLE and self.api_key:
+            resend.api_key = self.api_key
+            logger.info("Resend email service initialized")
+        else:
+            logger.warning("Email service running in simulation mode")
+    
+    def _render_template(self, template: str, data: Dict[str, Any]) -> str:
+        """Simple template variable replacement."""
+        result = template
+        for key, value in data.items():
+            result = result.replace(f"{{{{{key}}}}}", str(value))
+        return result
+    
+    async def send_email(
+        self,
+        to_email: str,
+        subject: str,
+        html_content: Optional[str] = None,
+        text_content: Optional[str] = None,
+        from_email: Optional[str] = None,
+        from_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Send an email using Resend."""
+        
+        if not html_content and not text_content:
+            raise ValueError("Either html_content or text_content must be provided")
+        
+        email_data = {
+            "from": f"{from_name or self.from_name} <{from_email or self.from_email}>",
+            "to": to_email,
+            "subject": subject,
+        }
+        
+        if html_content:
+            email_data["html"] = html_content
+        if text_content:
+            email_data["text"] = text_content
+        
+        if RESEND_AVAILABLE and self.api_key:
+            try:
+                response = resend.Emails.send(email_data)
+                logger.info(f"Email sent successfully to {to_email}")
+                return {
+                    "success": True,
+                    "message_id": response.get("id"),
+                    "provider": "resend"
+                }
+            except Exception as e:
+                logger.error(f"Failed to send email: {str(e)}")
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "provider": "resend"
+                }
+        else:
+            # Simulation mode - just log
+            logger.info(f"[SIMULATED] Email to {to_email}: {subject}")
+            return {
+                "success": True,
+                "message_id": f"sim_{datetime.utcnow().timestamp()}",
+                "provider": "simulation"
+            }
+    
+    async def send_template_email(
+        self,
+        to_email: str,
+        template_name: str,
+        template_data: Dict[str, Any],
+        subject_override: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Send an email using a stored template."""
+        from app.supabase import supabase_admin
+        
+        # Get template from database
+        response = supabase_admin.table("email_templates").select("*").eq("name", template_name).execute()
+        
+        if not response.data:
+            logger.warning(f"Template '{template_name}' not found")
+            return {
+                "success": False,
+                "error": f"Template '{template_name}' not found"
+            }
+        
+        template = response.data[0]
+        
+        # Render template
+        subject = subject_override or self._render_template(template["subject"], template_data)
+        html_content = self._render_template(template["body_html"], template_data) if template.get("body_html") else None
+        text_content = self._render_template(template.get("body_text", ""), template_data)
+        
+        return await self.send_email(
+            to_email=to_email,
+            subject=subject,
+            html_content=html_content,
+            text_content=text_content,
+        )
+    
+    async def send_bulk_emails(
+        self,
+        emails: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Send multiple emails in batch."""
+        results = []
+        
+        for email in emails:
+            result = await self.send_email(
+                to_email=email["to"],
+                subject=email["subject"],
+                html_content=email.get("html"),
+                text_content=email.get("text"),
             )
-            if response.status_code in (200, 201):
-                logger.info(f"Email sent to {to}: {subject}")
-                return True
-            else:
-                logger.error(f"Email failed: {response.status_code} {response.text}")
-                return False
-    except Exception as e:
-        logger.error(f"Email send error: {e}")
-        return False
+            results.append({
+                "to": email["to"],
+                **result
+            })
+        
+        return results
+    
+    async def send_welcome_email(self, user_email: str, user_name: str) -> Dict[str, Any]:
+        """Send welcome email to new users."""
+        return await self.send_template_email(
+            to_email=user_email,
+            template_name="welcome",
+            template_data={"name": user_name}
+        )
+    
+    async def send_registration_confirmation(
+        self,
+        user_email: str,
+        user_name: str,
+        event_name: str,
+        event_date: str,
+        venue: str,
+    ) -> Dict[str, Any]:
+        """Send registration confirmation email."""
+        return await self.send_template_email(
+            to_email=user_email,
+            template_name="registration_confirmation",
+            template_data={
+                "name": user_name,
+                "event_name": event_name,
+                "event_date": event_date,
+                "venue": venue,
+            }
+        )
+    
+    async def send_event_reminder(
+        self,
+        user_email: str,
+        user_name: str,
+        event_name: str,
+        event_date: str,
+    ) -> Dict[str, Any]:
+        """Send event reminder email."""
+        return await self.send_template_email(
+            to_email=user_email,
+            template_name="event_reminder",
+            template_data={
+                "name": user_name,
+                "event_name": event_name,
+                "event_date": event_date,
+            }
+        )
+    
+    async def send_team_invite(
+        self,
+        user_email: str,
+        user_name: str,
+        team_name: str,
+        event_name: str,
+        message: str,
+    ) -> Dict[str, Any]:
+        """Send team invitation email."""
+        return await self.send_template_email(
+            to_email=user_email,
+            template_name="team_invite",
+            template_data={
+                "name": user_name,
+                "team_name": team_name,
+                "event_name": event_name,
+                "message": message,
+            }
+        )
 
 
-# --- Pre-built email templates ---
-
-async def send_registration_confirmation(to: str, event_name: str, qr_code: str) -> bool:
-    """Send registration confirmation with QR code reference."""
-    html = f"""
-    <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-        <div style="background: linear-gradient(135deg, #7c3aed, #ec4899); padding: 32px; border-radius: 20px; text-align: center; color: white;">
-            <h1 style="margin: 0;">🎉 Registration Confirmed!</h1>
-        </div>
-        <div style="padding: 24px; background: #faf5ff; border-radius: 0 0 20px 20px;">
-            <p>You have successfully registered for <strong>{event_name}</strong>.</p>
-            <p>Your QR code for check-in: <code>{qr_code}</code></p>
-            <p>Show this QR code at the event venue for a quick check-in.</p>
-            <hr style="border: 1px solid #e9d5ff; margin: 16px 0;" />
-            <p style="color: #6b7280; font-size: 12px;">BCE Event Manager — Powered by Supabase</p>
-        </div>
-    </div>
-    """
-    return await send_email(to, f"Registration Confirmed — {event_name}", html)
+# Singleton instance
+email_service = EmailService()
 
 
-async def send_event_reminder(to: str, event_name: str, start_date: str, venue: str) -> bool:
-    """Send event reminder notification."""
-    html = f"""
-    <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-        <div style="background: linear-gradient(135deg, #3b82f6, #10b981); padding: 32px; border-radius: 20px; text-align: center; color: white;">
-            <h1 style="margin: 0;">⏰ Event Reminder</h1>
-        </div>
-        <div style="padding: 24px; background: #f0fdf4; border-radius: 0 0 20px 20px;">
-            <p><strong>{event_name}</strong> is starting soon!</p>
-            <p>📅 Date: {start_date}</p>
-            <p>📍 Venue: {venue}</p>
-            <p>Don't forget to bring your QR code for check-in.</p>
-        </div>
-    </div>
-    """
-    return await send_email(to, f"Reminder — {event_name} is coming up!", html)
+# Queue processor for background email processing
+class EmailQueueProcessor:
+    """Process queued emails from the database."""
+    
+    def __init__(self):
+        self.supabase = None
+    
+    def get_supabase(self):
+        if not self.supabase:
+            from app.supabase import supabase_admin
+            self.supabase = supabase_admin
+        return self.supabase
+    
+    async def process_queue(self, batch_size: int = 10) -> int:
+        """Process pending emails in the queue."""
+        supabase = self.get_supabase()
+        
+        # Get pending emails
+        response = supabase.table("email_queue").select("*").eq("status", "pending").order("priority", desc=True).order("created_at", asc=True).limit(batch_size).execute()
+        
+        if not response.data:
+            return 0
+        
+        processed = 0
+        
+        for email in response.data:
+            try:
+                # Update status to processing
+                supabase.table("email_queue").update({"status": "processing"}).eq("id", email["id"]).execute()
+                
+                # Get template data if template_id exists
+                template_data = email.get("template_data", {})
+                if email.get("template_id"):
+                    template_resp = supabase.table("email_templates").select("*").eq("id", email["template_id"]).execute()
+                    if template_resp.data:
+                        template = template_resp.data[0]
+                        # Render template
+                        subject = self._render_template(template.get("subject", ""), template_data)
+                        body_html = self._render_template(template.get("body_html", ""), template_data)
+                    else:
+                        subject = email.get("subject", "")
+                        body_html = email.get("body_html", "")
+                else:
+                    subject = email.get("subject", "")
+                    body_html = email.get("body_html", "")
+                
+                # Send email
+                result = await email_service.send_email(
+                    to_email=email["to_email"],
+                    subject=subject,
+                    html_content=body_html,
+                    from_email=email.get("from_email"),
+                    from_name=email.get("from_name"),
+                )
+                
+                if result.get("success"):
+                    # Mark as sent
+                    supabase.table("email_queue").update({
+                        "status": "sent",
+                        "sent_at": datetime.utcnow().isoformat(),
+                    }).eq("id", email["id"]).execute()
+                    
+                    # Log to email_log
+                    supabase.table("email_log").insert({
+                        "message_id": result.get("message_id"),
+                        "to_email": email["to_email"],
+                        "subject": subject,
+                        "status": "sent",
+                    }).execute()
+                else:
+                    # Mark as failed
+                    supabase.table("email_queue").update({
+                        "status": "failed",
+                        "failed_at": datetime.utcnow().isoformat(),
+                        "error_message": result.get("error"),
+                    }).eq("id", email["id"]).execute()
+                
+                processed += 1
+                
+            except Exception as e:
+                logger.error(f"Error processing email {email['id']}: {str(e)}")
+                supabase.table("email_queue").update({
+                    "status": "failed",
+                    "failed_at": datetime.utcnow().isoformat(),
+                    "error_message": str(e),
+                }).eq("id", email["id"]).execute()
+        
+        return processed
+    
+    def _render_template(self, template: str, data: Dict[str, Any]) -> str:
+        """Simple template variable replacement."""
+        result = template
+        for key, value in data.items():
+            result = result.replace(f"{{{{{key}}}}}", str(value))
+        return result
 
 
-async def send_password_reset_notification(to: str) -> bool:
-    """Send password reset notification."""
-    html = """
-    <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-        <div style="background: linear-gradient(135deg, #f59e0b, #ef4444); padding: 32px; border-radius: 20px; text-align: center; color: white;">
-            <h1 style="margin: 0;">🔑 Password Reset</h1>
-        </div>
-        <div style="padding: 24px; background: #fef3c7; border-radius: 0 0 20px 20px;">
-            <p>A password reset has been initiated for your account.</p>
-            <p>If you did not request this, please contact support immediately.</p>
-        </div>
-    </div>
-    """
-    return await send_email(to, "Password Reset Request — BCE Event Manager", html)
+email_queue_processor = EmailQueueProcessor()

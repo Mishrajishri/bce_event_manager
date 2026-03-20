@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
     Box,
     Typography,
@@ -10,11 +9,22 @@ import {
     Divider,
     Avatar,
     Chip,
+    FormHelperText,
 } from '@mui/material'
 import { Star, SentimentSatisfied } from '@mui/icons-material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useForm, Controller } from 'react-hook-form'
+import { z } from 'zod'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { feedbackApi } from '../services/api'
 import type { Feedback } from '../types'
+
+const feedbackSchema = z.object({
+    rating: z.number().min(1, 'Please provide a rating'),
+    comment: z.string().optional(),
+})
+
+type FeedbackForm = z.infer<typeof feedbackSchema>
 
 interface FeedbackFormProps {
     eventId: string
@@ -23,8 +33,6 @@ interface FeedbackFormProps {
 
 export default function FeedbackForm({ eventId, eventStatus }: FeedbackFormProps) {
     const queryClient = useQueryClient()
-    const [rating, setRating] = useState<number | null>(null)
-    const [comment, setComment] = useState('')
 
     const { data: feedbackList } = useQuery({
         queryKey: ['feedback', eventId],
@@ -36,15 +44,31 @@ export default function FeedbackForm({ eventId, eventStatus }: FeedbackFormProps
         queryFn: () => feedbackApi.summary(eventId),
     })
 
+    const {
+        control,
+        handleSubmit,
+        reset,
+        formState: { errors },
+    } = useForm<FeedbackForm>({
+        resolver: zodResolver(feedbackSchema),
+        defaultValues: {
+            rating: 0,
+            comment: '',
+        }
+    })
+
     const submitMutation = useMutation({
-        mutationFn: () => feedbackApi.create(eventId, { rating: rating!, comment: comment || undefined }),
+        mutationFn: (data: FeedbackForm) => feedbackApi.create(eventId, { rating: data.rating, comment: data.comment || undefined }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['feedback', eventId] })
             queryClient.invalidateQueries({ queryKey: ['feedback-summary', eventId] })
-            setRating(null)
-            setComment('')
+            reset()
         },
     })
+
+    const onSubmit = (data: FeedbackForm) => {
+        submitMutation.mutate(data)
+    }
 
     const isCompleted = eventStatus === 'completed'
 
@@ -80,23 +104,42 @@ export default function FeedbackForm({ eventId, eventStatus }: FeedbackFormProps
 
             {/* Submit Form */}
             {isCompleted ? (
-                <Box sx={{ mb: 3 }}>
+                <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ mb: 3 }}>
                     <Typography variant="subtitle2" gutterBottom>Rate this event</Typography>
-                    <Rating
-                        value={rating}
-                        onChange={(_, v) => setRating(v)}
-                        size="large"
-                        icon={<Star sx={{ color: '#f59e0b' }} fontSize="inherit" />}
-                        emptyIcon={<Star fontSize="inherit" />}
+                    <Controller
+                        name="rating"
+                        control={control}
+                        render={({ field }) => (
+                            <Box>
+                                <Rating
+                                    {...field}
+                                    value={Number(field.value)}
+                                    onChange={(_, v) => field.onChange(v || 0)}
+                                    size="large"
+                                    icon={<Star sx={{ color: '#f59e0b' }} fontSize="inherit" />}
+                                    emptyIcon={<Star fontSize="inherit" />}
+                                />
+                                {errors.rating && (
+                                    <FormHelperText error>{errors.rating.message}</FormHelperText>
+                                )}
+                            </Box>
+                        )}
                     />
-                    <TextField
-                        fullWidth
-                        multiline
-                        rows={3}
-                        placeholder="Share your experience (optional)"
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
-                        sx={{ mt: 2 }}
+                    <Controller
+                        name="comment"
+                        control={control}
+                        render={({ field }) => (
+                            <TextField
+                                {...field}
+                                fullWidth
+                                multiline
+                                rows={3}
+                                placeholder="Share your experience (optional)"
+                                sx={{ mt: 2 }}
+                                error={!!errors.comment}
+                                helperText={errors.comment?.message}
+                            />
+                        )}
                     />
                     {submitMutation.isError && (
                         <Alert severity="error" sx={{ mt: 1 }}>
@@ -107,9 +150,9 @@ export default function FeedbackForm({ eventId, eventStatus }: FeedbackFormProps
                         <Alert severity="success" sx={{ mt: 1 }}>Feedback submitted! Thank you.</Alert>
                     )}
                     <Button
+                        type="submit"
                         variant="contained"
-                        onClick={() => submitMutation.mutate()}
-                        disabled={!rating || submitMutation.isPending}
+                        disabled={submitMutation.isPending}
                         sx={{ mt: 2 }}
                     >
                         {submitMutation.isPending ? 'Submitting...' : 'Submit Feedback'}

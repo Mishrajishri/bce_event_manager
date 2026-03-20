@@ -24,7 +24,9 @@ import {
     Info
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
+import { io, Socket } from 'socket.io-client'
 import { notificationsApi } from '../services/api'
+import { useAuthStore } from '../store'
 
 interface Notification {
     id: string
@@ -57,11 +59,13 @@ const getNotificationIcon = (type: string) => {
 
 export function NotificationBell() {
     const navigate = useNavigate()
+    const { user } = useAuthStore()
     const anchorRef = useRef<HTMLButtonElement>(null)
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [unreadCount, setUnreadCount] = useState(0)
     const [loading, setLoading] = useState(false)
+    const socketRef = useRef<Socket | null>(null)
 
     const fetchNotifications = async () => {
         setLoading(true)
@@ -79,10 +83,37 @@ export function NotificationBell() {
 
     useEffect(() => {
         fetchNotifications()
-        // Poll for new notifications every 30 seconds
+        // Poll for new notifications every 30 seconds as backup
         const interval = setInterval(fetchNotifications, 30000)
-        return () => clearInterval(interval)
-    }, [])
+
+        // Real-time socket connection for notifications
+        const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+        const socket = io(SOCKET_URL, {
+            transports: ['websocket'],
+            autoConnect: true,
+        })
+        socketRef.current = socket
+
+        socket.on('connect', () => {
+            console.log('Notification socket connected')
+            if (user?.id) {
+                socket.emit('join_notifications', { user_id: user.id })
+            }
+        })
+
+        socket.on('new_notification', (notification: Notification) => {
+            console.log('New notification received:', notification)
+            // Add new notification to the top of the list
+            setNotifications(prev => [notification, ...prev])
+            // Increment unread count
+            setUnreadCount(prev => prev + 1)
+        })
+
+        return () => {
+            clearInterval(interval)
+            socket.disconnect()
+        }
+    }, [user?.id])
 
     const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget)

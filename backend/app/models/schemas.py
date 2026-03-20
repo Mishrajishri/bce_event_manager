@@ -553,6 +553,9 @@ class PlatformStats(BaseModel):
     total_revenue: float
     active_events: int
     users_by_role: dict
+    events_by_status: dict
+    registrations_by_status: dict
+    recent_registrations: int
 
 
 # Certificate Request
@@ -778,6 +781,11 @@ class TeamRequestResponse(TeamRequestBase):
         from_attributes = True
 
 # Mentorship
+class MentorStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
 class MentorBase(BaseModel):
     expertise_areas: List[str]
     bio: Optional[str] = None
@@ -787,14 +795,25 @@ class MentorCreate(MentorBase):
     event_id: str
     user_id: str
 
+class MentorUpdate(BaseModel):
+    expertise_areas: Optional[List[str]] = None
+    bio: Optional[str] = None
+    is_available: Optional[bool] = None
+    avatar_url: Optional[str] = None
+
 class MentorResponse(MentorBase):
     id: str
     event_id: str
     user_id: str
+    status: str
+    avatar_url: Optional[str] = None
+    average_rating: float
+    total_sessions: int
     created_at: datetime
 
     class Config:
         from_attributes = True
+
 
 class MentorshipSlotBase(BaseModel):
     start_time: datetime
@@ -804,6 +823,11 @@ class MentorshipSlotBase(BaseModel):
 class MentorshipSlotCreate(MentorshipSlotBase):
     mentor_id: str
 
+class MentorshipSlotUpdate(BaseModel):
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    meeting_link: Optional[str] = None
+
 class MentorshipSlotResponse(MentorshipSlotBase):
     id: str
     mentor_id: str
@@ -812,20 +836,90 @@ class MentorshipSlotResponse(MentorshipSlotBase):
     class Config:
         from_attributes = True
 
+
+class BookingStatus(str, Enum):
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    COMPLETED = "completed"
+    NO_SHOW = "no_show"
+
+
 class MentorshipBookingCreate(BaseModel):
     slot_id: str
     team_id: str
     notes: Optional[str] = None
+
+
+class MentorshipBookingUpdate(BaseModel):
+    status: Optional[BookingStatus] = None
+    meeting_link: Optional[str] = None
+    mentor_notes: Optional[str] = None
+
 
 class MentorshipBookingResponse(BaseModel):
     id: str
     slot_id: str
     team_id: str
     notes: Optional[str] = None
+    status: str
+    meeting_link: Optional[str] = None
+    mentor_notes: Optional[str] = None
     booked_at: datetime
 
     class Config:
         from_attributes = True
+
+
+# ============================================
+# Phase 7: Mentorship Feedback & Ratings
+# ============================================
+
+class MentorshipFeedbackCreate(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    feedback_text: Optional[str] = None
+    would_recommend: bool = True
+    areas_improved: Optional[List[str]] = None
+
+
+class MentorshipFeedbackResponse(BaseModel):
+    id: str
+    booking_id: str
+    rating: int
+    feedback_text: Optional[str] = None
+    would_recommend: bool
+    areas_improved: Optional[List[str]] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MentorRatingCreate(BaseModel):
+    booking_id: str
+    rating: int = Field(..., ge=1, le=5)
+
+
+class MentorRatingResponse(BaseModel):
+    id: str
+    mentor_id: str
+    booking_id: str
+    rating: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MentorRecommendationResponse(BaseModel):
+    mentor_id: str
+    total_recommendations: int
+    total_sessions: int
+    recommendation_rate: float
+
+    class Config:
+        from_attributes = True
+
+
 # ============================================
 # Phase 4: Cultural & Academic
 # ============================================
@@ -1211,3 +1305,263 @@ class SubmissionVersionResponse(SubmissionVersionBase):
 
     class Config:
         from_attributes = True
+
+
+# ============================================
+# Analytics Models
+# ============================================
+
+class UserActivityLogBase(BaseModel):
+    action: str
+    resource_type: str
+    resource_id: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
+
+class UserActivityLogCreate(UserActivityLogBase):
+    user_id: str
+
+
+class UserActivityLogResponse(UserActivityLogBase):
+    id: str
+    user_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class EventMetricsBase(BaseModel):
+    event_id: str
+    date: datetime
+    unique_visitors: int = 0
+    page_views: int = 0
+    registrations: int = 0
+    submissions: int = 0
+    active_participants: int = 0
+    engagement_score: Optional[float] = None
+
+
+class EventMetricsCreate(EventMetricsBase):
+    pass
+
+
+class EventMetricsResponse(EventMetricsBase):
+    id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================
+# Phase 6: Judging System Models
+# ============================================
+
+class JudgePanelBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+
+
+class JudgePanelCreate(JudgePanelBase):
+    event_id: str
+
+
+class JudgePanelResponse(JudgePanelBase):
+    id: str
+    event_id: str
+    created_by: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PanelJudgeCreate(BaseModel):
+    user_id: str
+    role: Optional[str] = Field("judge", max_length=50)
+
+
+class JudgeAssignmentCreate(BaseModel):
+    panel_id: str
+    submission_id: str
+    judge_id: str
+
+
+class JudgeConflictCreate(BaseModel):
+    judge_id: str
+    submission_id: str
+    conflict_type: str
+    description: Optional[str] = None
+
+
+class PeerReviewCreate(BaseModel):
+    submission_id: str
+    rating: int = Field(..., ge=1, le=5)
+    feedback: Optional[str] = None
+
+
+class PublicVoteCreate(BaseModel):
+    submission_id: str
+    vote_value: int = Field(1, ge=1, le=5)
+
+
+class DemoSessionCreate(BaseModel):
+    submission_id: str
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
+# ============================================
+# Phase 6.3: Milestones System Models
+# ============================================
+
+class MilestoneStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class MilestoneSubmissionType(str, Enum):
+    GITHUB = "github"
+    DEMO_VIDEO = "demo_video"
+    PITCH_DECK = "pitch_deck"
+    DOCUMENT = "document"
+    OTHER = "other"
+
+
+class MilestoneBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    due_date: datetime
+    point_value: int = Field(0, ge=0)
+    is_required: bool = False
+    sequence_order: int = 0
+
+
+class MilestoneCreate(MilestoneBase):
+    event_id: str
+
+
+class MilestoneUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    description: Optional[str] = None
+    due_date: Optional[datetime] = None
+    point_value: Optional[int] = Field(None, ge=0)
+    is_required: Optional[bool] = None
+    sequence_order: Optional[int] = None
+
+
+class MilestoneResponse(MilestoneBase):
+    id: str
+    event_id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TeamMilestoneBase(BaseModel):
+    status: MilestoneStatus = MilestoneStatus.PENDING
+    submission_link: Optional[str] = Field(None, max_length=500)
+    submission_notes: Optional[str] = None
+    points_earned: int = Field(0, ge=0)
+
+
+class TeamMilestoneUpdate(BaseModel):
+    status: Optional[MilestoneStatus] = None
+    submission_link: Optional[str] = Field(None, max_length=500)
+    submission_notes: Optional[str] = None
+    feedback: Optional[str] = None
+    points_earned: Optional[int] = Field(None, ge=0)
+
+
+class TeamMilestoneResponse(BaseModel):
+    id: str
+    team_id: str
+    milestone_id: str
+    status: str
+    submission_link: Optional[str] = None
+    submission_notes: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    feedback: Optional[str] = None
+    points_earned: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    # Joined fields
+    milestone_name: Optional[str] = None
+    milestone_due_date: Optional[datetime] = None
+    milestone_point_value: Optional[int] = None
+    milestone_is_required: Optional[bool] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MilestoneSubmissionBase(BaseModel):
+    submission_type: MilestoneSubmissionType
+    submission_url: str = Field(..., max_length=500)
+    description: Optional[str] = None
+
+
+class MilestoneSubmissionCreate(MilestoneSubmissionBase):
+    team_milestone_id: str
+
+
+class MilestoneSubmissionResponse(MilestoneSubmissionBase):
+    id: str
+    team_milestone_id: str
+    version: int
+    is_current: bool
+    submitted_by: str
+    submitted_at: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MilestoneReminderType(str, Enum):
+    DUE_SOON = "due_soon"
+    OVERDUE = "overdue"
+    CUSTOM = "custom"
+
+
+class MilestoneReminderCreate(BaseModel):
+    team_milestone_id: str
+    reminder_type: MilestoneReminderType
+    scheduled_for: Optional[datetime] = None
+    message: Optional[str] = None
+
+
+class MilestoneReminderResponse(BaseModel):
+    id: str
+    team_milestone_id: str
+    reminder_type: str
+    sent_at: Optional[datetime] = None
+    scheduled_for: Optional[datetime] = None
+    message: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TeamMilestoneProgress(BaseModel):
+    """Progress summary for a team's milestones."""
+    total_milestones: int
+    completed_milestones: int
+    pending_milestones: int
+    in_progress_milestones: int
+    submitted_milestones: int
+    total_points: int
+    earned_points: int
+    overdue_count: int

@@ -55,7 +55,7 @@ import {
 import { organizerApi } from '../../services/api'
 import { useAuthStore, isOrganizer } from '../../store'
 import { Navigate } from 'react-router-dom'
-import type { OrganizerAnalytics, EventPerformance, RecentActivity } from '../../types'
+import type { OrganizerAnalytics, EventPerformance, RecentActivity, ChipColor } from '../../types'
 
 // Colors for charts
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D']
@@ -283,7 +283,7 @@ function AttendanceFunnelChart({ data }: { data: OrganizerAnalytics['attendance_
 // Events Performance Table
 // ---------------------------------------------------------------------------
 function EventsPerformanceTable({ data }: { data: EventPerformance[] }) {
-    const getStatusColor = (status: string) => {
+    const getStatusColor = (status: string): ChipColor => {
         switch (status) {
             case 'published': return 'success'
             case 'ongoing': return 'info'
@@ -326,7 +326,7 @@ function EventsPerformanceTable({ data }: { data: EventPerformance[] }) {
                                     </Box>
                                 </TableCell>
                                 <TableCell>
-                                    <Chip label={event.status} color={getStatusColor(event.status) as any} size="small" />
+                                    <Chip label={event.status} color={getStatusColor(event.status)} size="small" />
                                 </TableCell>
                                 <TableCell align="right">
                                     {event.registrations.toLocaleString()} / {event.capacity.toLocaleString()}

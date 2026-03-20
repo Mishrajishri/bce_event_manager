@@ -140,16 +140,80 @@ export function createAppTheme(mode: 'light' | 'dark'): Theme {
                         '&:hover': {
                             boxShadow: isLight ? hoverClayShadowLight : hoverClayShadowDark,
                         },
-                        ...(mode === 'dark' && {
-                            color: '#0F172A', // Dark mode buttons with Volt green bg need dark text for contrast
-                        }),
                     },
                     containedPrimary: {
                         ...(mode === 'dark' && {
                             color: '#0F172A',
                             fontWeight: 800,
                         }),
-                    }
+                    },
+                    outlinedPrimary: {
+                        ...(mode === 'dark' && {
+                            borderColor: 'rgba(163,230,53,0.5)',
+                            color: '#A3E635',
+                            '&:hover': {
+                                borderColor: '#A3E635',
+                                backgroundColor: 'rgba(163,230,53,0.08)',
+                                boxShadow: '0 0 12px rgba(163,230,53,0.15)',
+                            },
+                        }),
+                    },
+                },
+            },
+
+            MuiOutlinedInput: {
+                styleOverrides: {
+                    root: {
+                        ...(mode === 'dark' && {
+                            color: '#CBD5E1',
+                            '& .MuiOutlinedInput-notchedOutline': {
+                                borderColor: 'rgba(148,163,184,0.4)',
+                            },
+                            '&:hover .MuiOutlinedInput-notchedOutline': {
+                                borderColor: 'rgba(148,163,184,0.6)',
+                            },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                borderColor: '#A3E635',
+                            },
+                        }),
+                    },
+                },
+            },
+
+            MuiInputLabel: {
+                styleOverrides: {
+                    root: {
+                        ...(mode === 'dark' && {
+                            color: '#94A3B8',
+                            '&.Mui-focused': {
+                                color: '#A3E635',
+                            },
+                        }),
+                    },
+                },
+            },
+
+            MuiSelect: {
+                styleOverrides: {
+                    icon: {
+                        ...(mode === 'dark' && {
+                            color: '#94A3B8',
+                        }),
+                    },
+                },
+            },
+
+            MuiTableHead: {
+                styleOverrides: {
+                    root: {
+                        ...(mode === 'dark' && {
+                            '& .MuiTableCell-head': {
+                                color: '#E2E8F0',
+                                fontWeight: 700,
+                                borderBottom: '1px solid rgba(163,230,53,0.2)',
+                            },
+                        }),
+                    },
                 },
             },
 

@@ -6,6 +6,8 @@ import {
   IconButton,
   TextField,
   InputAdornment,
+  Box,
+  Typography,
 } from '@mui/material'
 import { Visibility, VisibilityOff, Email, Lock } from '@mui/icons-material'
 import { useForm, Controller } from 'react-hook-form'
@@ -14,7 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { supabase } from '../services/supabase'
 import { useAuthStore } from '../store'
 import { authApi } from '../services/api'
-import { AuthLayout } from '../components/layout_components'
+import { AuthLayout, useAuthContext } from '../components/layout_components'
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
@@ -23,9 +25,10 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
-export default function Login() {
+function LoginFormContent() {
   const navigate = useNavigate()
   const { setAuth } = useAuthStore()
+  const { setReaction } = useAuthContext()
 
   const [showPassword, setShowPassword] = useState(false)
   const [serverError, setServerError] = useState('')
@@ -70,18 +73,31 @@ export default function Login() {
       setAuth(user, access_token, refresh_token)
       navigate('/')
     } catch (err) {
+      // Trigger error reaction - sad shaking denial
+      setReaction('error')
+      setTimeout(() => setReaction('idle'), 1800)
       setServerError(err instanceof Error ? err.message : 'Login failed')
     }
   }
 
+  const handleEmailFocus = () => {
+    setReaction('typing_email')
+  }
+
+  const handlePasswordFocus = () => {
+    setReaction(showPassword ? 'sneaking_password_visible' : 'sneaking_password_hidden')
+  }
+
+  const handleInputBlur = () => {
+    setReaction('idle')
+  }
+
+  const handleEmailChange = () => {
+    setReaction('typing_email')
+  }
+
   return (
-    <AuthLayout
-      title="Welcome Back"
-      subtitle="Login to your account to continue"
-      bottomLinkTagline="Don't have an account?"
-      bottomLinkText="Register"
-      bottomLinkTo="/register"
-    >
+    <>
       {serverError && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {serverError}
@@ -110,6 +126,17 @@ export default function Login() {
               autoComplete="email"
               error={!!errors.email}
               helperText={errors.email?.message}
+              onFocus={handleEmailFocus}
+              onBlur={handleInputBlur}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                field.onChange(e)
+                handleEmailChange()
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'background.paper',
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -135,6 +162,13 @@ export default function Login() {
               autoComplete="current-password"
               error={!!errors.password}
               helperText={errors.password?.message}
+              onFocus={handlePasswordFocus}
+              onBlur={handleInputBlur}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'background.paper',
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -144,7 +178,13 @@ export default function Login() {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() => {
+                        const newShow = !showPassword;
+                        setShowPassword(newShow);
+                        if (document.activeElement?.getAttribute('name') === 'password') {
+                          setReaction(newShow ? 'sneaking_password_visible' : 'sneaking_password_hidden');
+                        }
+                      }}
                       edge="end"
                       aria-label="toggle password visibility"
                     >
@@ -157,14 +197,26 @@ export default function Login() {
           )}
         />
 
-        <Button
-          sx={{ mt: 1, textTransform: 'none', display: 'flex', ml: 'auto', p: 0, '&:hover': { background: 'transparent', textDecoration: 'underline' } }}
-          color="primary"
-          variant="text"
-          onClick={handleForgotPassword}
-        >
-          Forgot Password?
-        </Button>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%', mt: 0.5 }}>
+          <Typography
+            component="span"
+            variant="body2"
+            color="primary"
+            fontWeight={500}
+            onClick={handleForgotPassword}
+            onMouseEnter={() => setReaction('hover_forgot_password')}
+            onMouseLeave={() => setReaction('idle')}
+            sx={(theme) => ({
+              cursor: 'pointer',
+              color: theme.palette.mode === 'dark' ? '#84cc16' : '#2563eb',
+              '&:hover': {
+                textDecoration: 'underline'
+              }
+            })}
+          >
+            Forgot Password?
+          </Typography>
+        </Box>
 
         <Button
           fullWidth
@@ -172,11 +224,26 @@ export default function Login() {
           variant="contained"
           size="large"
           disabled={isSubmitting}
-          sx={{ mt: 3, mb: 2 }}
+          sx={{ mt: 3, mb: 2, padding: '12px', fontSize: '1.1rem' }}
         >
           {isSubmitting ? 'Signing in...' : 'Login'}
         </Button>
       </form>
+    </>
+  )
+}
+
+export default function Login() {
+  return (
+    <AuthLayout
+      title="Welcome Back"
+      subtitle="Login to your account to continue"
+      bottomLinkTagline="Don't have an account?"
+      bottomLinkText="Register"
+      bottomLinkTo="/register"
+      showInteractiveCharacters={true}
+    >
+      <LoginFormContent />
     </AuthLayout>
   )
 }

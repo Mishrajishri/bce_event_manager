@@ -1,6 +1,8 @@
 // User Types
 export type UserRole = 'super_admin' | 'admin' | 'organizer' | 'captain' | 'attendee'
 
+export type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'
+
 export interface User {
   id: string
   email: string
@@ -129,6 +131,7 @@ export interface Registration {
   payment_method?: string
   transaction_id?: string
   qr_code?: string
+  waitlist_position?: number
   checked_in_at?: string
   registered_at: string
 }
@@ -218,6 +221,9 @@ export interface PlatformStats {
   total_revenue: number
   active_events: number
   users_by_role: Record<string, number>
+  events_by_status?: Record<string, number>
+  registrations_by_status?: Record<string, number>
+  recent_registrations?: number
 }
 
 // Analytics Types
@@ -417,6 +423,9 @@ export interface TeamRequestCreate {
 }
 
 // Mentorship
+export type MentorStatus = 'pending' | 'approved' | 'rejected'
+export type BookingStatus = 'confirmed' | 'cancelled' | 'completed' | 'no_show'
+
 export interface Mentor {
   id: string
   event_id: string
@@ -424,7 +433,26 @@ export interface Mentor {
   expertise_areas: string[]
   bio?: string
   is_available: boolean
+  status: MentorStatus
+  avatar_url?: string
+  average_rating: number
+  total_sessions: number
+  rejection_reason?: string
   created_at: string
+}
+
+export interface MentorCreate {
+  event_id: string
+  user_id: string
+  expertise_areas: string[]
+  bio?: string
+}
+
+export interface MentorUpdate {
+  expertise_areas?: string[]
+  bio?: string
+  is_available?: boolean
+  avatar_url?: string
 }
 
 export interface MentorshipSlot {
@@ -436,11 +464,21 @@ export interface MentorshipSlot {
   meeting_link?: string
 }
 
+export interface MentorshipSlotCreate {
+  mentor_id: string
+  start_time: string
+  end_time: string
+  meeting_link?: string
+}
+
 export interface MentorshipBooking {
   id: string
   slot_id: string
   team_id: string
   notes?: string
+  status: BookingStatus
+  meeting_link?: string
+  mentor_notes?: string
   booked_at: string
 }
 
@@ -448,6 +486,239 @@ export interface MentorshipBookingCreate {
   slot_id: string
   team_id: string
   notes?: string
+}
+
+export interface MentorshipBookingUpdate {
+  status?: BookingStatus
+  meeting_link?: string
+  mentor_notes?: string
+}
+
+// Mentorship Feedback & Ratings
+export interface MentorshipFeedback {
+  id: string
+  booking_id: string
+  rating: number
+  feedback_text?: string
+  would_recommend: boolean
+  areas_improved?: string[]
+  created_at: string
+}
+
+export interface MentorshipFeedbackCreate {
+  rating: number
+  feedback_text?: string
+  would_recommend: boolean
+  areas_improved?: string[]
+}
+
+export interface MentorRating {
+  id: string
+  mentor_id: string
+  booking_id: string
+  rating: number
+  created_at: string
+}
+
+export interface MentorRecommendation {
+  mentor_id: string
+  total_recommendations: number
+  total_sessions: number
+  recommendation_rate: number
+}
+
+export interface MentorStats {
+  mentor_id: string
+  status: MentorStatus
+  average_rating: number
+  total_sessions: number
+  total_slots: number
+  booked_slots: number
+  completed_sessions: number
+  cancelled_sessions: number
+  utilization_rate: number
+}
+
+// ============================================
+// Phase 6.3: Milestones System Types
+// ============================================
+
+export type MilestoneStatus = 'pending' | 'in_progress' | 'submitted' | 'approved' | 'rejected'
+export type MilestoneSubmissionType = 'github' | 'demo_video' | 'pitch_deck' | 'document' | 'other'
+
+export interface Milestone {
+  id: string
+  event_id: string
+  name: string
+  description?: string
+  due_date: string
+  point_value: number
+  is_required: boolean
+  sequence_order: number
+  created_at: string
+  updated_at?: string
+}
+
+export interface MilestoneCreate {
+  event_id: string
+  name: string
+  description?: string
+  due_date: string
+  point_value?: number
+  is_required?: boolean
+  sequence_order?: number
+}
+
+export interface MilestoneUpdate {
+  name?: string
+  description?: string
+  due_date?: string
+  point_value?: number
+  is_required?: boolean
+  sequence_order?: number
+}
+
+export interface TeamMilestone {
+  id: string
+  team_id: string
+  milestone_id: string
+  status: MilestoneStatus
+  submission_link?: string
+  submission_notes?: string
+  submitted_at?: string
+  reviewed_by?: string
+  reviewed_at?: string
+  feedback?: string
+  points_earned: number
+  created_at: string
+  updated_at?: string
+  milestone_name?: string
+  milestone_due_date?: string
+  milestone_point_value?: number
+  milestone_is_required?: boolean
+}
+
+export interface TeamMilestoneUpdate {
+  status?: MilestoneStatus
+  submission_link?: string
+  submission_notes?: string
+  feedback?: string
+  points_earned?: number
+}
+
+export interface MilestoneSubmission {
+  id: string
+  team_milestone_id: string
+  submission_type: MilestoneSubmissionType
+  submission_url: string
+  description?: string
+  version: number
+  is_current: boolean
+  submitted_by: string
+  submitted_at: string
+  created_at: string
+}
+
+export interface MilestoneSubmissionCreate {
+  team_milestone_id: string
+  submission_type: MilestoneSubmissionType
+  submission_url: string
+  description?: string
+}
+
+export interface MilestoneReminder {
+  id: string
+  team_milestone_id: string
+  reminder_type: 'due_soon' | 'overdue' | 'custom'
+  sent_at?: string
+  scheduled_for?: string
+  message?: string
+}
+
+export interface MilestoneReminderCreate {
+  team_milestone_id: string
+  reminder_type: 'due_soon' | 'overdue' | 'custom'
+  scheduled_for?: string
+  message?: string
+}
+
+export interface TeamMilestoneProgress {
+  total_milestones: number
+  completed_milestones: number
+  pending_milestones: number
+  in_progress_milestones: number
+  submitted_milestones: number
+  total_points: number
+  earned_points: number
+  overdue_count: number
+}
+
+// ============================================
+// Phase 6.4: Prize Management Types
+// ============================================
+
+export type PrizeType = 'cash' | 'certificate' | 'trophy' | 'merch' | 'service' | 'other'
+export type DistributionStatus = 'pending' | 'sent' | 'claimed' | 'failed'
+
+export interface PrizeCategory {
+  id: string
+  event_id: string
+  name: string
+  description?: string
+  rank: number
+  is_special: boolean
+  icon?: string
+  created_at: string
+}
+
+export interface Prize {
+  id: string
+  event_id: string
+  category_id?: string
+  name: string
+  description?: string
+  prize_type: PrizeType
+  value?: number
+  currency?: string
+  sponsor_id?: string
+  image_url?: string
+  is_winner_selected: boolean
+  created_at: string
+}
+
+export interface PrizeCreate {
+  event_id: string
+  category_id?: string
+  name: string
+  description?: string
+  prize_type: PrizeType
+  value?: number
+  currency?: string
+  sponsor_id?: string
+  image_url?: string
+}
+
+export interface PrizeWinner {
+  id: string
+  prize_id: string
+  team_id?: string
+  user_id?: string
+  rank: number
+  announced_at?: string
+  distribution_status: DistributionStatus
+  team_name?: string
+  winner_name?: string
+}
+
+export interface PrizeSponsor {
+  id: string
+  event_id: string
+  name: string
+  website_url?: string
+  logo_url?: string
+  tier?: string
+  contribution_description?: string
+  created_at: string
 }
 
 // ============================================

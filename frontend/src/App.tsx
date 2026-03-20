@@ -17,6 +17,10 @@ const MyRegistrations = lazy(() => import('./pages/MyRegistrations'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const Scanner = lazy(() => import('./pages/admin/Scanner'))
 const OrganizerAnalytics = lazy(() => import('./pages/organizer/Analytics'))
+const OrganizerParticipants = lazy(() => import('./pages/organizer/Participants'))
+const OrganizerTeams = lazy(() => import('./pages/organizer/Teams'))
+const OrganizerExpenses = lazy(() => import('./pages/organizer/Expenses'))
+const OrganizerVolunteers = lazy(() => import('./pages/organizer/Volunteers'))
 const SubmitProject = lazy(() => import('./pages/SubmitProject'))
 const TeamBoard = lazy(() => import('./pages/TeamBoard'))
 const JudgingDashboard = lazy(() => import('./pages/JudgingDashboard'))
@@ -29,6 +33,8 @@ const PerformanceSchedule = lazy(() => import('./pages/PerformanceSchedule'))
 const PaperSubmissionPortal = lazy(() => import('./pages/PaperSubmissionPortal'))
 const ReviewerDashboard = lazy(() => import('./pages/ReviewerDashboard'))
 const Profile = lazy(() => import('./pages/Profile'))
+const MilestoneTracker = lazy(() => import('./pages/MilestoneTracker'))
+const PrizeDisplay = lazy(() => import('./pages/PrizeDisplay'))
 
 function LoadingFallback() {
   return (
@@ -113,6 +119,8 @@ function App() {
             <Route path="events/:eventId/academic/submit" element={<PaperSubmissionPortal />} />
             <Route path="profile" element={<Profile />} />
             <Route path="my-registrations" element={<MyRegistrations />} />
+            <Route path="teams/:teamId/milestones" element={<MilestoneTracker />} />
+            <Route path="events/:eventId/prizes" element={<PrizeDisplay />} />
 
             {/* Organizer routes */}
             <Route path="dashboard" element={
@@ -120,6 +128,18 @@ function App() {
             } />
             <Route path="organizer/analytics" element={
               <OrganizerRoute><OrganizerAnalytics /></OrganizerRoute>
+            } />
+            <Route path="organizer/participants" element={
+              <OrganizerRoute><OrganizerParticipants /></OrganizerRoute>
+            } />
+            <Route path="organizer/teams" element={
+              <OrganizerRoute><OrganizerTeams /></OrganizerRoute>
+            } />
+            <Route path="organizer/expenses" element={
+              <OrganizerRoute><OrganizerExpenses /></OrganizerRoute>
+            } />
+            <Route path="organizer/volunteers" element={
+              <OrganizerRoute><OrganizerVolunteers /></OrganizerRoute>
             } />
             <Route path="events/create" element={
               <OrganizerRoute><CreateEvent /></OrganizerRoute>

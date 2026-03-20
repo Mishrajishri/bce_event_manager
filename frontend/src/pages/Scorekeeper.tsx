@@ -11,6 +11,7 @@ import {
 import { Add, Remove, Send } from '@mui/icons-material'
 import { matchesApi } from '../services/api'
 import { PageContainer } from '../components/layout_components'
+import type { MatchStatus } from '../types'
 
 export default function Scorekeeper() {
     const { eventId, matchId } = useParams<{ eventId: string, matchId: string }>()
@@ -102,7 +103,7 @@ export default function Scorekeeper() {
                                 <Select
                                     value={match.status}
                                     label="Match Status"
-                                    onChange={(e) => updateScoreMutation.mutate({ status: e.target.value as any })}
+                                    onChange={(e) => updateScoreMutation.mutate({ status: e.target.value as MatchStatus })}
                                 >
                                     <MenuItem value="scheduled">Scheduled</MenuItem>
                                     <MenuItem value="ongoing">Ongoing</MenuItem>

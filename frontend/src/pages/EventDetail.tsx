@@ -112,6 +112,7 @@ export default function EventDetail() {
           component="img"
           src={event.cover_image || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1200'}
           alt={event.name}
+          loading="lazy"
           sx={{ width: '100%', height: { xs: 200, md: 350 }, objectFit: 'cover' }}
         />
         <Box sx={{ p: { xs: 3, md: 4 } }}>

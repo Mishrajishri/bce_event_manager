@@ -14,6 +14,7 @@ from pythonjsonlogger.jsonlogger import JsonFormatter
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.limiter import limiter
+from app.middleware.validation import RequestValidationMiddleware
 
 from app.config import settings
 from app.routers import (
@@ -42,6 +43,12 @@ from app.routers import (
     events_enhanced,
     teams_enhanced,
     registrations_enhanced,
+    judging,
+    mentorship,
+    analytics_reporting,
+    communication,
+    milestones,
+    prizes,
 )
 
 # Configure structured JSON logging
@@ -163,6 +170,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add request validation middleware
+app.add_middleware(RequestValidationMiddleware)
+
 # Include routers
 app.include_router(auth.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
@@ -189,6 +199,12 @@ app.include_router(analytics_enhanced.router, prefix="/api")
 app.include_router(events_enhanced.router, prefix="/api")
 app.include_router(teams_enhanced.router, prefix="/api")
 app.include_router(registrations_enhanced.router, prefix="/api")
+app.include_router(judging.router, prefix="/api")
+app.include_router(mentorship.router, prefix="/api")
+app.include_router(analytics_reporting.router, prefix="/api")
+app.include_router(communication.router, prefix="/api")
+app.include_router(milestones.router, prefix="/api")
+app.include_router(prizes.router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
